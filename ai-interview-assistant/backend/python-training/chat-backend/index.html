@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Auth Test</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+        .status-box { margin: 20px; padding: 20px; border: 2px solid #4285F4; display: inline-block; border-radius: 8px; }
+        .token { word-break: break-all; color: #555; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Auth Test</h1>
+
+    <div id="login-section">
+        <a href="http://localhost:8000/v1_0/auth/login/google">
+            <img src="https://developers.google.com/identity/images/btn_google_signin_dark_normal_web.png" alt="Google Sign In">
+        </a>
+    </div>
+
+    <div id="success-section" style="display:none;">
+        <div class="status-box">
+            <h2 style="color: green;">✓ Login Successful</h2>
+            <p>Internal JWT received and stored in LocalStorage:</p>
+            <div id="token-display" class="token"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check URL for token
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+
+        if (token) {
+            // Save token and update UI
+            localStorage.setItem('internal_jwt', token);
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('success-section').style.display = 'block';
+            document.getElementById('token-display').innerText = token;
+
+            // Optional: Clean the URL so the token isn't visible in the address bar
+            window.history.replaceState({}, document.title, "/index.html");
+        }
+    </script>
+</body>
+</html>

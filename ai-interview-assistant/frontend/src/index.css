@@ -1,0 +1,134 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  body {
+    @apply m-0 bg-[#f8fbff] font-sans text-slate-900 antialiased;
+  }
+
+  body.app-theme-dark {
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  body.app-theme-dark .login-page {
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  body.app-theme-dark .login-card {
+    @apply border-slate-700 bg-slate-900 text-slate-100;
+  }
+
+  body.app-theme-dark .login-card .text-slate-900 {
+    color: #f8fafc !important;
+  }
+
+  body.app-theme-dark .login-card .text-slate-700 {
+    color: #e2e8f0 !important;
+  }
+
+  body.app-theme-dark .login-card .text-slate-600 {
+    color: #cbd5e1 !important;
+  }
+
+  body.app-theme-dark .login-card .border-slate-300 {
+    border-color: #475569 !important;
+  }
+
+  body.app-theme-dark .login-card .bg-white {
+    background-color: #0f172a !important;
+  }
+
+  body.app-theme-dark .login-card .hover\:bg-slate-50:hover {
+    background-color: #1e293b !important;
+  }
+
+  body.app-theme-dark .user-profile-page {
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  body.app-theme-dark .user-profile-header,
+  body.app-theme-dark .user-profile-card {
+    @apply border-slate-700 bg-slate-900 text-slate-100;
+  }
+
+  body.app-theme-dark .user-profile-page .text-slate-900 {
+    color: #f8fafc !important;
+  }
+
+  body.app-theme-dark .user-profile-page .text-slate-800 {
+    color: #e2e8f0 !important;
+  }
+
+  body.app-theme-dark .user-profile-page .text-slate-700 {
+    color: #e2e8f0 !important;
+  }
+
+  body.app-theme-dark .user-profile-page .text-slate-600,
+  body.app-theme-dark .user-profile-page .text-slate-500 {
+    color: #cbd5e1 !important;
+  }
+
+  body.app-theme-dark .user-profile-page .border-slate-200,
+  body.app-theme-dark .user-profile-page .border-slate-300 {
+    border-color: #475569 !important;
+  }
+
+  body.app-theme-dark .user-profile-page .bg-white,
+  body.app-theme-dark .user-profile-page .bg-slate-50 {
+    background-color: #0f172a !important;
+  }
+
+  body.app-theme-dark .user-profile-page .hover\:bg-slate-50:hover {
+    background-color: #1e293b !important;
+  }
+
+  body.app-theme-dark .onboarding-page {
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  body.app-theme-dark .onboarding-page .bg-white\/95,
+  body.app-theme-dark .onboarding-page .bg-white {
+    background-color: #0f172a !important;
+  }
+
+  body.app-theme-dark .onboarding-page .text-slate-900 {
+    color: #f8fafc !important;
+  }
+
+  body.app-theme-dark .onboarding-page .text-slate-800,
+  body.app-theme-dark .onboarding-page .text-slate-700 {
+    color: #e2e8f0 !important;
+  }
+
+  body.app-theme-dark .onboarding-page .text-slate-600,
+  body.app-theme-dark .onboarding-page .text-slate-500 {
+    color: #cbd5e1 !important;
+  }
+
+  body.app-theme-dark .onboarding-page .border-slate-200,
+  body.app-theme-dark .onboarding-page .border-slate-300,
+  body.app-theme-dark .onboarding-page .border-white\/70 {
+    border-color: #334155 !important;
+  }
+
+  body.app-theme-dark .onboarding-page .bg-slate-50,
+  body.app-theme-dark .onboarding-page .bg-blue-50\/50 {
+    background-color: #111827 !important;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+}

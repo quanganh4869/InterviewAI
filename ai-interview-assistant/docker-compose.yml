@@ -1,0 +1,59 @@
+﻿name: datn
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: datn-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-AIinterview}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
+    ports:
+      - "5432:5432"
+    volumes:
+      - datn_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    container_name: datn-backend
+    build:
+      context: ./backend/python-training/chat-backend
+      dockerfile: Dockerfile.datn
+    environment:
+      POSTGRES_SERVER: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-AIinterview}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
+      READ_ONLY_POSTGRES_SERVER: postgres
+      READ_ONLY_POSTGRES_PORT: 5432
+      READ_ONLY_POSTGRES_DB: ${POSTGRES_DB:-AIinterview}
+      READ_ONLY_POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      READ_ONLY_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    container_name: datn-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.datn
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  datn_postgres_data:

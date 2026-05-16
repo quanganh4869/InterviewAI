@@ -1,0 +1,220 @@
+.header-modern {
+  height: 64px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.header-left .page-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: #f1f5f9;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  width: 300px;
+}
+
+.search-icon {
+  color: #64748b;
+  margin-right: 0.5rem;
+}
+
+.search-box input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.875rem;
+  width: 100%;
+  color: #1e293b;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background-color: #f1f5f9;
+  color: #2563eb;
+}
+
+.notification-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+}
+
+.user-dropdown {
+  position: relative;
+}
+
+.profile-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.profile-trigger:hover {
+  background-color: #f8fbff;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-info-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.user-role {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: 200px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem;
+  display: none;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.dropdown-menu.is-open {
+  display: flex;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 8px;
+  color: #475569;
+  text-decoration: none;
+  font-size: 0.875rem;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background-color: #f1f5f9;
+  color: #2563eb;
+}
+
+.menu-item.logout {
+  color: #ef4444;
+}
+
+.menu-item.logout:hover {
+  background-color: #fef2f2;
+}
+
+/* Dark Theme */
+.app-theme-dark .header-modern {
+  background-color: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.app-theme-dark .page-title,
+.app-theme-dark .user-name {
+  color: #f1f5f9;
+}
+
+.app-theme-dark .search-box {
+  background-color: #334155;
+}
+
+.app-theme-dark .search-box input {
+  color: #f1f5f9;
+}
+
+.app-theme-dark .icon-btn:hover {
+  background-color: #334155;
+}
+
+.app-theme-dark .profile-trigger:hover {
+  background-color: #334155;
+}
+
+.app-theme-dark .dropdown-menu {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+.app-theme-dark .menu-item {
+  color: #94a3b8;
+}
+
+.app-theme-dark .menu-item:hover {
+  background-color: #334155;
+  color: #3b82f6;
+}

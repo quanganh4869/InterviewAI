@@ -1,0 +1,34 @@
+.main-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--app-bg, #f8fbff);
+  color: var(--app-text, #1e293b);
+}
+
+.main-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  transition: padding 0.3s ease;
+}
+
+.page-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .page-content {
+    padding: 1rem;
+  }
+}
+
+/* Dark theme overrides */
+.app-theme-dark .main-layout {
+  --app-bg: #0f172a;
+  --app-text: #f1f5f9;
+}
