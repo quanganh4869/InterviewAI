@@ -54,7 +54,7 @@ class DocumentService:
     def _ensure_presigned_download_enabled(self) -> None:
         if not self.storage_service.supports_presigned_download:
             raise ExceptionValueError(
-                message="Presigned download is only available when STORAGE_STRATEGY=s3.",
+                message="Presigned download is only available when STORAGE_STRATEGY=r2.",
             )
 
     async def _ensure_object_exists(self, object_key: str) -> None:
@@ -62,19 +62,19 @@ class DocumentService:
             exists = await self.storage_service.object_exists(object_key)
         except NotImplementedError as exc:
             raise ExceptionValueError(
-                message="Download URL is only available when STORAGE_STRATEGY=s3.",
+                message="Download URL is only available when STORAGE_STRATEGY=r2.",
             ) from exc
         except Exception as exc:
             log.error(
-                "s3_access_check_failed object_key=%s error=%s", object_key, str(exc)
+                "r2_access_check_failed object_key=%s error=%s", object_key, str(exc)
             )
             raise ExceptionValueError(
-                message="Cannot access file on S3. Check IAM or bucket policy.",
+                message="Cannot access file on Cloudflare R2. Check token or bucket policy.",
                 status_code=502,
             ) from exc
         if not exists:
             raise ExceptionValueError(
-                message="Uploaded file is not found in S3 bucket."
+                message="Uploaded file is not found in Cloudflare R2 bucket."
             )
 
     @staticmethod
@@ -253,7 +253,7 @@ class DocumentService:
                 status_code=400,
             )
 
-        ttl = expires_in or configuration.AWS_PRESIGNED_GET_EXPIRES_SECONDS
+        ttl = expires_in or configuration.CLOUDFLARE_R2_PRESIGNED_GET_EXPIRES_SECONDS
         response = await self.storage_service.create_presigned_download(
             object_key=document.storage_key,
             expires_seconds=ttl,

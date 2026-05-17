@@ -30,7 +30,7 @@ class FileStorageService(ABC):
 
     async def object_exists(self, object_key: str) -> bool:
         raise NotImplementedError(
-            "Object existence check is only available for S3 strategy."
+            "Object existence check is only available for R2 strategy."
         )
 
     async def create_presigned_download(
@@ -39,7 +39,7 @@ class FileStorageService(ABC):
         expires_seconds: int = 600,
     ) -> dict[str, Any]:
         raise NotImplementedError(
-            "Presigned download is only available for S3 strategy."
+            "Presigned download is only available for R2 strategy."
         )
 
 
@@ -61,15 +61,16 @@ class LocalFileStorageService(FileStorageService):
             file_path.unlink()
 
 
-class S3FileStorageService(FileStorageService):
+class R2FileStorageService(FileStorageService):
     supports_presigned_download: bool = True
 
     def __init__(self) -> None:
         self.session = aiobotocore.session.get_session()
-        self.bucket_name = configuration.AWS_BUCKET_NAME
-        self.region_name = configuration.AWS_REGION
-        self.access_key = configuration.AWS_ACCESS_KEY_ID
-        self.secret_key = configuration.AWS_SECRET_ACCESS_KEY
+        self.bucket_name = configuration.CLOUDFLARE_R2_BUCKET_NAME
+        self.region_name = configuration.CLOUDFLARE_R2_REGION
+        self.endpoint_url = configuration.CLOUDFLARE_R2_ENDPOINT
+        self.access_key = configuration.CLOUDFLARE_R2_ACCESS_KEY_ID
+        self.secret_key = configuration.CLOUDFLARE_R2_SECRET_ACCESS_KEY
 
     def _build_object_key(self, sub_dir: str, file_name: str) -> str:
         safe_name = _sanitize_filename(file_name)
@@ -84,6 +85,7 @@ class S3FileStorageService(FileStorageService):
         async with self.session.create_client(
             "s3",
             region_name=self.region_name,
+            endpoint_url=self.endpoint_url or None,
             aws_access_key_id=self.access_key or None,
             aws_secret_access_key=self.secret_key or None,
         ) as client:
@@ -94,13 +96,14 @@ class S3FileStorageService(FileStorageService):
                 ContentType=content_type,
             )
 
-        log.info(f"Uploaded object to S3: bucket={self.bucket_name}, key={object_key}")
+        log.info(f"Uploaded object to R2: bucket={self.bucket_name}, key={object_key}")
         return object_key
 
     async def delete_file(self, storage_key: str) -> None:
         async with self.session.create_client(
             "s3",
             region_name=self.region_name,
+            endpoint_url=self.endpoint_url or None,
             aws_access_key_id=self.access_key or None,
             aws_secret_access_key=self.secret_key or None,
         ) as client:
@@ -111,6 +114,7 @@ class S3FileStorageService(FileStorageService):
             async with self.session.create_client(
                 "s3",
                 region_name=self.region_name,
+                endpoint_url=self.endpoint_url or None,
                 aws_access_key_id=self.access_key or None,
                 aws_secret_access_key=self.secret_key or None,
             ) as client:
@@ -131,6 +135,7 @@ class S3FileStorageService(FileStorageService):
         async with self.session.create_client(
             "s3",
             region_name=self.region_name,
+            endpoint_url=self.endpoint_url or None,
             aws_access_key_id=self.access_key or None,
             aws_secret_access_key=self.secret_key or None,
         ) as client:
@@ -147,6 +152,6 @@ class S3FileStorageService(FileStorageService):
 
 
 def get_storage_service() -> FileStorageService:
-    if configuration.STORAGE_STRATEGY == "s3":
-        return S3FileStorageService()
+    if configuration.STORAGE_STRATEGY == "r2":
+        return R2FileStorageService()
     return LocalFileStorageService()

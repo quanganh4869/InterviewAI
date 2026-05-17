@@ -42,18 +42,19 @@ class Settings(BaseSettings):
     READ_ONLY_POSTGRES_PORT: int
 
     # AES-GCM
-    AWS_SECRET_ROTATION_KEY_MAPPING: dict = {}
-    AWS_SECRET_CURRENT_VERSION: str
+    APP_SECRET_ROTATION_KEY_MAPPING: dict = {}
+    APP_SECRET_CURRENT_VERSION: str
 
     # Storage settings
-    STORAGE_STRATEGY: Literal["local", "s3"] = "local"
+    STORAGE_STRATEGY: Literal["local", "r2"] = "local"
     UPLOAD_DIR: str = "uploads"
-    AWS_ACCESS_KEY_ID: str = ""
-    AWS_SECRET_ACCESS_KEY: str = ""
-    AWS_REGION: str = "us-east-1"
-    AWS_BUCKET_NAME: str = ""
-    AWS_PRESIGNED_EXPIRES_SECONDS: int = 900
-    AWS_PRESIGNED_GET_EXPIRES_SECONDS: int = 600
+    CLOUDFLARE_R2_ACCESS_KEY_ID: str = ""
+    CLOUDFLARE_R2_SECRET_ACCESS_KEY: str = ""
+    CLOUDFLARE_R2_REGION: str = "auto"
+    CLOUDFLARE_R2_ENDPOINT: str = ""
+    CLOUDFLARE_R2_BUCKET_NAME: str = ""
+    CLOUDFLARE_R2_PRESIGNED_EXPIRES_SECONDS: int = 900
+    CLOUDFLARE_R2_PRESIGNED_GET_EXPIRES_SECONDS: int = 600
     DOCUMENT_CV_PREFIX: str = ""
     DOCUMENT_JD_PREFIX: str = ""
 

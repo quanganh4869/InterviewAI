@@ -1,34 +1,36 @@
-import logging
-
-from configuration.settings import configuration
-
-log = logging.getLogger(__name__)
+import hashlib
+import re
+import unicodedata
 
 
 class EmbeddingProvider:
-    _instance = None
+    """A lightweight hash-based embedding provider (no ML runtime dependency)."""
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._model = None
-        return cls._instance
+    VECTOR_SIZE = 512
+    TOKEN_RE = re.compile(r"\w+")
 
-    @property
-    def model(self):
-        if self._model is None:
-            import torch
-            from sentence_transformers import SentenceTransformer
+    @classmethod
+    def _normalize(cls, text: str) -> str:
+        normalized = unicodedata.normalize("NFC", text or "").lower()
+        return " ".join(normalized.split())
 
-            model_name = configuration.EMBEDDING_MODEL_NAME
-            log.info("loading_embedding_model name=%s", model_name)
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            self._model = SentenceTransformer(model_name, device=device)
-            log.info("embedding_model_ready name=%s device=%s", model_name, device)
-        return self._model
+    @classmethod
+    def _tokenize(cls, text: str) -> list[str]:
+        return cls.TOKEN_RE.findall(text)
 
-    def encode(self, texts: list[str]):
-        return self.model.encode(texts)
+    @classmethod
+    def _hash_index(cls, token: str) -> int:
+        digest = hashlib.sha256(token.encode("utf-8")).digest()
+        return int.from_bytes(digest[:8], "big") % cls.VECTOR_SIZE
+
+    def _encode_one(self, text: str) -> list[float]:
+        vector = [0.0] * self.VECTOR_SIZE
+        for token in self._tokenize(self._normalize(text)):
+            vector[self._hash_index(token)] += 1.0
+        return vector
+
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        return [self._encode_one(text) for text in texts]
 
 
 embedding_provider = EmbeddingProvider()

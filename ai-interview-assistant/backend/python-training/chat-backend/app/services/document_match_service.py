@@ -1,6 +1,7 @@
 import re
 import unicodedata
 from typing import Any
+from math import sqrt
 
 from configuration.settings import configuration
 from core.exception_handler.custom_exception import ExceptionValueError
@@ -8,7 +9,6 @@ from db.models.users import User
 from services.cv_parser_service import CvParserService
 from services.document_service import DocumentService
 from services.providers.embedding_provider import embedding_provider
-from sklearn.metrics.pairwise import cosine_similarity
 from sqlalchemy.ext.asyncio import AsyncSession
 
 TECH_STACK_LIBRARY = [
@@ -107,6 +107,17 @@ def _clamp(value: float, min_value: float, max_value: float) -> float:
     return max(min_value, min(value, max_value))
 
 
+def _cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
+    if len(vec_a) != len(vec_b):
+        return 0.0
+    dot = sum(a * b for a, b in zip(vec_a, vec_b))
+    norm_a = sqrt(sum(a * a for a in vec_a))
+    norm_b = sqrt(sum(b * b for b in vec_b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
 class DocumentMatchService:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
@@ -192,7 +203,7 @@ class DocumentMatchService:
         jd_clean = clean_text(jd_text)
 
         embeddings = self.embedding_service.encode([cv_clean, jd_clean])
-        semantic_raw = float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0])
+        semantic_raw = _cosine_similarity(embeddings[0], embeddings[1])
         semantic_score = _clamp(semantic_raw, 0.0, 1.0)
 
         jd_skills = extract_skills(jd_text)

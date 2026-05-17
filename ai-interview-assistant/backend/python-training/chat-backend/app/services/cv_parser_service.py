@@ -12,7 +12,7 @@ from core.enums.document_enum import DocumentType
 from core.exception_handler.custom_exception import ExceptionValueError
 from db.models.users import User
 from services.document_service import DocumentService
-from services.file_storage_service import S3FileStorageService, get_storage_service
+from services.file_storage_service import R2FileStorageService, get_storage_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -99,7 +99,7 @@ class CvParserService:
             )
 
     async def _read_document_bytes(self, storage_key: str) -> bytes:
-        if configuration.STORAGE_STRATEGY != "s3":
+        if configuration.STORAGE_STRATEGY != "r2":
             file_path = Path(storage_key)
             if not file_path.exists():
                 raise ExceptionValueError(
@@ -109,15 +109,16 @@ class CvParserService:
             return file_path.read_bytes()
 
         storage_service = get_storage_service()
-        if not isinstance(storage_service, S3FileStorageService):
+        if not isinstance(storage_service, R2FileStorageService):
             raise ExceptionValueError(
-                message="S3 storage is not configured correctly.",
+                message="Cloudflare R2 storage is not configured correctly.",
                 status_code=500,
             )
         try:
             async with storage_service.session.create_client(
                 "s3",
                 region_name=storage_service.region_name,
+                endpoint_url=storage_service.endpoint_url or None,
                 aws_access_key_id=storage_service.access_key or None,
                 aws_secret_access_key=storage_service.secret_key or None,
             ) as client:
@@ -130,12 +131,12 @@ class CvParserService:
             code = str(exc.response.get("Error", {}).get("Code", ""))
             if code in {"NoSuchKey", "404", "NotFound"}:
                 raise ExceptionValueError(
-                    message="Document file is not found in S3 storage.",
+                    message="Document file is not found in Cloudflare R2 storage.",
                     status_code=404,
                 ) from exc
-            log.error("failed_to_read_cv_from_s3 key=%s error=%s", storage_key, str(exc))
+            log.error("failed_to_read_cv_from_r2 key=%s error=%s", storage_key, str(exc))
             raise ExceptionValueError(
-                message="Cannot read CV file from S3.",
+                message="Cannot read CV file from Cloudflare R2.",
                 status_code=502,
             ) from exc
 

@@ -27,8 +27,8 @@ class AesGCMRotation:
         if not plaintext:
             return plaintext
 
-        key = self.configuration.AWS_SECRET_ROTATION_KEY_MAPPING.get(
-            self.configuration.AWS_SECRET_CURRENT_VERSION
+        key = self.configuration.APP_SECRET_ROTATION_KEY_MAPPING.get(
+            self.configuration.APP_SECRET_CURRENT_VERSION
         ).encode()
         nonce = os.urandom(12)
         cipher = Cipher(
@@ -37,7 +37,7 @@ class AesGCMRotation:
         encryptor = cipher.encryptor()
 
         ciphertext = encryptor.update(plaintext.encode()) + encryptor.finalize()
-        return f"{self.configuration.AWS_SECRET_CURRENT_VERSION.encode().hex()}:{nonce.hex()}:{ciphertext.hex()}:{encryptor.tag.hex()}"  # noqa: E501
+        return f"{self.configuration.APP_SECRET_CURRENT_VERSION.encode().hex()}:{nonce.hex()}:{ciphertext.hex()}:{encryptor.tag.hex()}"  # noqa: E501
 
     def decrypt_data(self, encrypted_data: str) -> str:
         """
@@ -56,7 +56,7 @@ class AesGCMRotation:
         version, nonce, ciphertext, tag = (
             bytes.fromhex(x) for x in encrypted_data.split(":")
         )
-        key = self.configuration.AWS_SECRET_ROTATION_KEY_MAPPING.get(
+        key = self.configuration.APP_SECRET_ROTATION_KEY_MAPPING.get(
             version.decode()
         ).encode()
         cipher = Cipher(
