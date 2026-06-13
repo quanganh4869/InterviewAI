@@ -1,8 +1,9 @@
-﻿# Scope repository to the main project folder
+# Scope repository to the main project folder
 /*
 !/.gitignore
 !/README.md
 !/ai-interview-assistant/
+!/AI/
 
 # OS / editor
 .DS_Store

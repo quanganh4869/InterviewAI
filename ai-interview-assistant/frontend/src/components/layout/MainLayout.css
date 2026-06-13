@@ -1,8 +1,10 @@
 .main-layout {
   display: flex;
   min-height: 100vh;
-  background-color: var(--app-bg, #f8fbff);
-  color: var(--app-text, #1e293b);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0)) 0 0 / 100% 260px no-repeat,
+    var(--color-bg);
+  color: var(--color-text);
 }
 
 .main-content-wrapper {
@@ -15,20 +17,28 @@
 
 .page-content {
   flex: 1;
-  padding: 2rem;
+  padding: 1.5rem;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
 }
 
-@media (max-width: 768px) {
+.app-theme-dark .main-layout {
+  background: var(--color-bg);
+}
+
+@media (max-width: 900px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
   .page-content {
     padding: 1rem;
   }
 }
 
-/* Dark theme overrides */
-.app-theme-dark .main-layout {
-  --app-bg: #0f172a;
-  --app-text: #f1f5f9;
+@media (max-width: 560px) {
+  .page-content {
+    padding: 0.875rem;
+  }
 }

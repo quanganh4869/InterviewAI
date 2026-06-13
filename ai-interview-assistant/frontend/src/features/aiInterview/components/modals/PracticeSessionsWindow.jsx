@@ -269,7 +269,7 @@ export function PracticeSessionsWindow({
 
                 {selectedSession.feedback ? (
                   <div className="legacy-window-block">
-                    <strong className="legacy-window-block-title">Feedback (demo)</strong>
+                    <strong className="legacy-window-block-title">Feedback</strong>
                     <p className="legacy-window-paragraph">{selectedSession.feedback.summary}</p>
                     {Array.isArray(selectedSession.feedback.highlights) && selectedSession.feedback.highlights.length ? (
                       <>

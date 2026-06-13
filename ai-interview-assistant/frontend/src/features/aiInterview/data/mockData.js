@@ -1,8 +1,3 @@
-/**
- * File này chứa toàn bộ dữ liệu mẫu (mock data) cho Dashboard.
- * Giúp tập trung quản lý và tránh việc lặp lại code ở nhiều nơi.
- */
-
 export const JOB_POSTINGS = [
   {
     id: "JD-TCB-2026-01",
@@ -36,7 +31,8 @@ export const JOB_POSTINGS = [
     type: "Toàn thời gian",
     salary: "40 - 60 triệu",
     postedAt: "23/03/2026",
-    summary: "Dẫn dắt các chương trình kiểm toán CNTT và phối hợp khắc phục điểm yếu kiểm soát nội bộ.",
+    summary:
+      "Dẫn dắt các chương trình kiểm toán CNTT và phối hợp khắc phục điểm yếu kiểm soát nội bộ.",
     responsibilities: [
       "Lập kế hoạch kiểm toán CNTT theo quý/năm.",
       "Đánh giá hiệu quả kiểm soát công nghệ và quản trị dữ liệu.",
@@ -77,15 +73,15 @@ export const JOB_POSTINGS = [
   },
 ];
 
-export const DEMO_CV_ROWS = [
+export const SAMPLE_CV_ROWS = [
   {
-    id: "CV-DEMO-001",
-    name: "Nguyễn_Minh_CV.pdf",
+    id: "CV-SAMPLE-001",
+    name: "Nguyen_Minh_CV.pdf",
     role: "Senior Frontend",
     updatedAt: "26/03/2026",
   },
   {
-    id: "CV-DEMO-002",
+    id: "CV-SAMPLE-002",
     name: "Tran_Bao_B_Resume.docx",
     role: "Frontend Engineer",
     updatedAt: "24/03/2026",
@@ -98,6 +94,7 @@ export const HISTORY_DATA = [
     date: "22/03/2026",
     role: "Senior Frontend Specialist",
     type: "behavioral",
+    mode: "Hành vi",
     score: 88,
     verdict: "Nên tuyển mạnh",
   },
@@ -106,6 +103,7 @@ export const HISTORY_DATA = [
     date: "18/03/2026",
     role: "Technical Lead",
     type: "technical",
+    mode: "Kỹ thuật",
     score: 84,
     verdict: "Nên tuyển",
   },

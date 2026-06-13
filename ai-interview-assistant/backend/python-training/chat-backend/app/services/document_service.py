@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from configuration.logger.config import log
@@ -45,8 +46,10 @@ class DocumentService:
         user: User, document_type: str | DocumentType
     ) -> DocumentType:
         requested_type = DocumentService._normalize_document_type(document_type)
+        if user.role == UserRole.ADMIN:
+            return requested_type
         if user.role == UserRole.HR:
-            return DocumentType.JD
+            return requested_type
         if user.role == UserRole.USER:
             return DocumentType.CV
         return requested_type
@@ -55,6 +58,17 @@ class DocumentService:
         if not self.storage_service.supports_presigned_download:
             raise ExceptionValueError(
                 message="Presigned download is only available when STORAGE_STRATEGY=r2.",
+            )
+
+    @staticmethod
+    def _ensure_requested_media_type(document: Document, image_only: bool) -> None:
+        if image_only and (
+            not document.mime_type
+            or not document.mime_type.lower().startswith("image/")
+        ):
+            raise ExceptionValueError(
+                message="This document is not an image.",
+                status_code=400,
             )
 
     async def _ensure_object_exists(self, object_key: str) -> None:
@@ -206,7 +220,10 @@ class DocumentService:
         if document.deleted_at is not None:
             raise ExceptionValueError(message="Document not found.", status_code=404)
 
-        if document.owner_user_id != user.id and user.role != UserRole.HR:
+        if document.owner_user_id != user.id and user.role not in {
+            UserRole.HR,
+            UserRole.ADMIN,
+        }:
             raise ExceptionValueError(
                 message="You do not have permission to access this document.",
                 status_code=403,
@@ -219,10 +236,9 @@ class DocumentService:
         user: User,
         document_type: str | DocumentType | None = None,
     ) -> list[Document]:
-        query = select(Document).where(
-            Document.owner_user_id == user.id,
-            Document.deleted_at.is_(None),
-        )
+        query = select(Document).where(Document.deleted_at.is_(None))
+        if user.role != UserRole.ADMIN:
+            query = query.where(Document.owner_user_id == user.id)
         if document_type:
             normalized_type = self._normalize_document_type(document_type)
             query = query.where(Document.document_type == normalized_type.value)
@@ -238,20 +254,19 @@ class DocumentService:
         expires_in: int | None = None,
         image_only: bool = False,
     ) -> dict[str, Any]:
-        self._ensure_presigned_download_enabled()
         document = await self._get_accessible_document(
             user=user, document_id=document_id
         )
-        await self._ensure_object_exists(document.storage_key)
+        self._ensure_requested_media_type(document, image_only)
+        if not self.storage_service.supports_presigned_download:
+            return {
+                "document_id": document.id,
+                "download_url": "",
+                "expires_in": 0,
+                "download_mode": "local",
+            }
 
-        if image_only and (
-            not document.mime_type
-            or not document.mime_type.lower().startswith("image/")
-        ):
-            raise ExceptionValueError(
-                message="This document is not an image.",
-                status_code=400,
-            )
+        await self._ensure_object_exists(document.storage_key)
 
         ttl = expires_in or configuration.CLOUDFLARE_R2_PRESIGNED_GET_EXPIRES_SECONDS
         response = await self.storage_service.create_presigned_download(
@@ -262,7 +277,76 @@ class DocumentService:
             "document_id": document.id,
             "download_url": response["download_url"],
             "expires_in": response["expires_in"],
+            "download_mode": "presigned",
         }
+
+    async def get_local_content(
+        self,
+        user: User,
+        document_id: int,
+        image_only: bool = False,
+    ) -> tuple[Document, Path]:
+        if configuration.STORAGE_STRATEGY != "local":
+            raise ExceptionValueError(
+                message="Local document content is only available when STORAGE_STRATEGY=local.",
+                status_code=400,
+            )
+
+        document = await self._get_accessible_document(
+            user=user,
+            document_id=document_id,
+        )
+        self._ensure_requested_media_type(document, image_only)
+
+        upload_root = Path(configuration.UPLOAD_DIR).resolve()
+        file_path = Path(document.storage_key).resolve()
+        if not file_path.is_relative_to(upload_root):
+            raise ExceptionValueError(
+                message="Document storage path is outside the upload directory.",
+                status_code=403,
+            )
+        if not file_path.is_file():
+            raise ExceptionValueError(
+                message="Document file is not found in local storage.",
+                status_code=404,
+            )
+        return document, file_path
+
+    async def update_document(
+        self,
+        user: User,
+        document_id: int,
+        file_name: str | None = None,
+        target_role: str | None = None,
+        title: str | None = None,
+        company: str | None = None,
+        summary: str | None = None,
+    ) -> Document:
+        document = await self._get_accessible_document(
+            user=user,
+            document_id=document_id,
+        )
+
+        if file_name is not None:
+            document.file_name = file_name.strip()
+
+        metadata = dict(document.metadata_json or {})
+        if document.document_type == DocumentType.CV:
+            if target_role is not None:
+                metadata["target_role"] = target_role.strip()
+        elif document.document_type == DocumentType.JD:
+            if title is not None:
+                metadata["title"] = title.strip()
+            if company is not None:
+                metadata["company"] = company.strip()
+            if summary is not None:
+                metadata["summary"] = summary.strip()
+
+        document.metadata_json = metadata
+        self.db_session.add(document)
+        await self.db_session.commit()
+        await self.db_session.refresh(document)
+        return document
 
     async def delete_document(self, user: User, document_id: int) -> dict[str, Any]:
         document = await self._get_accessible_document(

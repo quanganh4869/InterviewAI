@@ -144,7 +144,7 @@ class CvParserService:
         self,
         pdf_bytes: bytes,
     ) -> tuple[int, str, list[str], str, bool]:
-        self._configure_ocr_environment()
+        ocr_status = self._configure_ocr_environment()
         diagnostics: list[str] = []
         page_texts: list[str] = []
         ocr_used = False
@@ -162,7 +162,13 @@ class CvParserService:
                     mode = "words"
                 ocr_error = ""
                 if not text and self._cfg_bool("CV_OCR_ENABLED", True):
-                    text, ocr_error = self._text_from_ocr(page)
+                    if not ocr_status["available"]:
+                        ocr_error = ocr_status["message"]
+                    else:
+                        text, ocr_error = self._text_from_ocr(
+                            page,
+                            tessdata=str(ocr_status.get("tessdata") or ""),
+                        )
                     if text:
                         mode = "ocr"
                         ocr_used = True
@@ -211,12 +217,19 @@ class CvParserService:
             if len(word) > 4 and str(word[4]).strip()
         ).strip()
 
-    def _text_from_ocr(self, page) -> tuple[str, str]:
+    def _text_from_ocr(self, page, tessdata: str = "") -> tuple[str, str]:
         try:
-            text_page = page.get_textpage_ocr(
-                language=self._cfg_str("CV_OCR_LANG", "vie+eng"),
-                dpi=self._cfg_positive_int("CV_OCR_DPI", 300),
-            )
+            kwargs = {
+                "language": self._cfg_str("CV_OCR_LANG", "vie+eng"),
+                "dpi": self._cfg_positive_int("CV_OCR_DPI", 300),
+            }
+            if tessdata:
+                kwargs["tessdata"] = tessdata
+            try:
+                text_page = page.get_textpage_ocr(**kwargs)
+            except TypeError:
+                kwargs.pop("tessdata", None)
+                text_page = page.get_textpage_ocr(**kwargs)
             return (text_page.extractText(sort=True) or "").strip(), ""
         except RuntimeError as exc:
             log.warning("cv_parse_ocr_runtime_error error=%s", str(exc))
@@ -305,8 +318,8 @@ class CvParserService:
         value = str(getattr(configuration, field_name, default) or "").strip()
         return value or default
 
-    def _configure_ocr_environment(self) -> None:
-        tessdata_prefix = self._cfg_str("TESSDATA_PREFIX", "")
+    def _configure_ocr_environment(self) -> dict[str, str | bool]:
+        tessdata_prefix = self._resolve_tessdata_path()
         if tessdata_prefix:
             os.environ["TESSDATA_PREFIX"] = tessdata_prefix
 
@@ -316,3 +329,39 @@ class CvParserService:
 
         if tesseract_cmd and not os.environ.get("TESSERACT"):
             os.environ["TESSERACT"] = tesseract_cmd
+
+        if not tesseract_cmd:
+            return {
+                "available": False,
+                "tessdata": tessdata_prefix,
+                "message": "Tesseract binary is not installed or not in PATH",
+            }
+        if not tessdata_prefix:
+            return {
+                "available": False,
+                "tessdata": "",
+                "message": "Tesseract tessdata path is not configured",
+            }
+
+        return {"available": True, "tessdata": tessdata_prefix, "message": ""}
+
+    def _resolve_tessdata_path(self) -> str:
+        configured = self._cfg_str("TESSDATA_PREFIX", "")
+        candidates = [
+            configured,
+            os.environ.get("TESSDATA_PREFIX", ""),
+            "/usr/share/tesseract-ocr/5/tessdata",
+            "/usr/share/tesseract-ocr/4.00/tessdata",
+            "/usr/share/tessdata",
+            "/usr/local/share/tessdata",
+        ]
+
+        for candidate in candidates:
+            value = str(candidate or "").strip()
+            if not value:
+                continue
+            path = Path(value)
+            if path.is_dir() and any(path.glob("*.traineddata")):
+                return str(path)
+
+        return ""

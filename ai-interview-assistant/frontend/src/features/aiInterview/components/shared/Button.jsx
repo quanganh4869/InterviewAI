@@ -58,8 +58,8 @@ export function Button({
       event.stopPropagation();
       dispatchNotice({
         tone: "info",
-        title: soonTitle || "Coming soon",
-        message: soonMessage || "Tính năng này đang được phát triển. Bạn quay lại sau nhé.",
+        title: soonTitle || "Tính năng đang hoàn thiện",
+        message: soonMessage || "Tính năng này chưa sẵn sàng để sử dụng.",
       });
       return;
     }

@@ -1,19 +1,19 @@
 .interview-legacy {
-  --border: #d8e2ee;
-  --text: #10203a;
-  --text-soft: #5f6f84;
-  --primary: #1678ff;
-  --primary-strong: #0d57c2;
-  --success: #15876b;
-  --warning: #b96a0f;
-  --danger: #bf3a4f;
-  --info: #0f6f8e;
-  --shell: #f3f7fc;
-  --card-bg: #ffffff;
-  --card-soft: #f6f9fe;
+  --border: var(--color-border);
+  --text: var(--color-text);
+  --text-soft: var(--color-text-muted);
+  --primary: var(--color-primary);
+  --primary-strong: var(--color-primary-dark);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --danger: var(--color-danger);
+  --info: var(--color-info);
+  --shell: var(--color-bg);
+  --card-bg: var(--color-surface);
+  --card-soft: var(--color-surface-muted);
   --row-alt: #fbfdff;
-  --shadow-sm: 0 2px 8px rgba(15, 30, 54, 0.06);
-  --shadow-md: 0 12px 32px rgba(15, 30, 54, 0.1);
+  --shadow-sm: var(--shadow-xs);
+  --shadow-md: var(--shadow-sm);
   background: var(--shell);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
@@ -545,6 +545,179 @@
   border-color: var(--primary);
   background: var(--card-bg);
   transform: translateY(-1px);
+}
+
+.interview-legacy .jd-detail-window {
+  width: min(100%, 1080px);
+  padding: 20px;
+  max-height: min(92vh, 1120px);
+  gap: 18px;
+}
+
+.interview-legacy .jd-detail-topbar {
+  position: sticky;
+  top: -20px;
+  z-index: 2;
+  margin: -20px -20px 0;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-bg) 94%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.interview-legacy .jd-detail-file-link {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-soft);
+  color: var(--primary-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.interview-legacy .jd-detail-file-link:hover {
+  border-color: rgba(22, 120, 255, 0.28);
+  background: rgba(22, 120, 255, 0.1);
+}
+
+.interview-legacy .jd-detail-sheet {
+  display: grid;
+  gap: 14px;
+}
+
+.interview-legacy .jd-detail-section {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card-soft);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.interview-legacy .jd-detail-section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.interview-legacy .jd-detail-section-head > span {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+}
+
+.interview-legacy .jd-detail-section-head small {
+  color: var(--text-soft);
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.interview-legacy .jd-detail-section-head h3 {
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.25;
+  margin: 4px 0 0;
+}
+
+.interview-legacy .jd-detail-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.interview-legacy .jd-detail-field {
+  min-width: 0;
+  min-height: 72px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-bg);
+  color: var(--text);
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  padding: 12px 14px;
+}
+
+.interview-legacy .jd-detail-field.wide {
+  grid-column: 1 / -1;
+}
+
+.interview-legacy .jd-detail-field span {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.interview-legacy .jd-detail-field strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.interview-legacy .jd-detail-copy-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.interview-legacy .jd-detail-copy-block {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-bg);
+  padding: 14px;
+}
+
+.interview-legacy .jd-detail-copy-block h4 {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+  margin: 0 0 10px;
+}
+
+.interview-legacy .jd-detail-copy {
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+  .interview-legacy .jd-detail-window {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .interview-legacy .jd-detail-topbar {
+    top: -14px;
+    margin: -14px -14px 0;
+    padding: 14px;
+  }
+
+  .interview-legacy .jd-detail-topbar,
+  .interview-legacy .jd-detail-topbar .legacy-window-actions {
+    align-items: stretch;
+  }
+
+  .interview-legacy .jd-detail-section {
+    border-radius: 16px;
+    padding: 13px;
+  }
+
+  .interview-legacy .jd-detail-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .interview-legacy .legacy-window-toolbar {
@@ -4430,7 +4603,7 @@
   color: #284260;
 }
 
-/* Service plans demo */
+/* Service plans */
 .interview-legacy .plans-grid {
   display: grid;
   gap: 14px;
@@ -7275,5 +7448,223 @@
 }
 
 /* -------------------------------------------------------------------------- */
+/* Custom styles for compact interview room layout                           */
+/* -------------------------------------------------------------------------- */
+.interview-legacy.interview-room-layout {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .interview-legacy.interview-room-layout {
+    height: auto;
+    overflow: auto;
+  }
+}
+
+.interview-legacy.interview-room-layout .role-hero {
+  padding: 0.75rem 1rem !important;
+}
+
+.interview-legacy.interview-room-layout .role-hero h2 {
+  font-size: 1.25rem !important;
+  margin-top: 0.15rem !important;
+}
+
+.interview-legacy.interview-room-layout .role-hero p {
+  font-size: 0.8rem !important;
+  margin-top: 0.05rem !important;
+}
+
+.interview-legacy .interview-card-stretch {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.interview-legacy .interview-card-stretch > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Animated 2D HR Avatar & Waveform styles */
+.interview-legacy .avatar-container {
+  position: relative;
+  background: radial-gradient(circle, var(--color-surface) 60%, var(--color-surface-muted) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+
+.interview-legacy .avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+/* Breathing animation for idle state */
+.interview-legacy .avatar-idle {
+  animation: avatarBreath 4s ease-in-out infinite;
+}
+
+/* Talking animation: bobbing and scale pulses */
+.interview-legacy .avatar-talking {
+  animation: avatarTalk 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes avatarBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.01) translateY(-1px); }
+}
+
+@keyframes avatarTalk {
+  0% { transform: scale(1.01) translateY(0); }
+  100% { transform: scale(1.03) translateY(-3px) rotate(0.5deg); }
+}
+
+/* Waveform bars */
+.interview-legacy .waveform-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  height: 32px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 99px;
+  backdrop-filter: blur(4px);
+}
+
+.interview-legacy .waveform-bar {
+  width: 3px;
+  background-color: var(--color-primary);
+  border-radius: 99px;
+  height: 6px;
+  transform-origin: bottom;
+}
+
+.interview-legacy .waveform-bar.talking-bar-1 { animation: soundWave 0.6s ease-in-out infinite alternate; }
+.interview-legacy .waveform-bar.talking-bar-2 { animation: soundWave 0.8s ease-in-out infinite alternate 0.15s; }
+.interview-legacy .waveform-bar.talking-bar-3 { animation: soundWave 0.5s ease-in-out infinite alternate 0.3s; }
+.interview-legacy .waveform-bar.talking-bar-4 { animation: soundWave 0.7s ease-in-out infinite alternate 0.1s; }
+.interview-legacy .waveform-bar.talking-bar-5 { animation: soundWave 0.9s ease-in-out infinite alternate 0.2s; }
+
+@keyframes soundWave {
+  0% { transform: scaleY(0.4); height: 8px; }
+  100% { transform: scaleY(1); height: 24px; }
+}
+
 /* End of legacy styles                                                        */
 /* -------------------------------------------------------------------------- */
+
+/* SVG HR Avatar 2D Animations */
+.interview-legacy .avatar-body {
+  transform-origin: 200px 350px;
+  animation: avatarBodyBreath 4s ease-in-out infinite;
+}
+
+@keyframes avatarBodyBreath {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.01);
+  }
+}
+
+.interview-legacy .avatar-head {
+  transform-origin: 200px 220px;
+  transition: transform 0.3s ease-in-out;
+}
+
+.interview-legacy .avatar-head-idle {
+  animation: avatarHeadIdle 6s ease-in-out infinite;
+}
+
+.interview-legacy .avatar-head-speaking {
+  animation: avatarHeadSpeaking 2.5s ease-in-out infinite;
+}
+
+@keyframes avatarHeadIdle {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(1.5px) rotate(0.5deg);
+  }
+}
+
+@keyframes avatarHeadSpeaking {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-2px) rotate(-1.5deg);
+  }
+  75% {
+    transform: translateY(1px) rotate(1.5deg);
+  }
+}
+
+.interview-legacy .avatar-eyes {
+  transform-origin: 200px 151px;
+  animation: avatarBlink 4s infinite;
+}
+
+@keyframes avatarBlink {
+  0%, 95%, 100% {
+    transform: scaleY(1);
+  }
+  97.5% {
+    transform: scaleY(0.1);
+  }
+}
+
+.interview-legacy .avatar-mouth-talking {
+  transform-origin: 200px 186px;
+  animation: avatarMouthTalk 0.18s ease-in-out infinite alternate;
+}
+
+@keyframes avatarMouthTalk {
+  0% {
+    transform: scaleY(0.4);
+  }
+  100% {
+    transform: scaleY(1.2) scaleX(1.1);
+  }
+}
+
+.interview-legacy .avatar-hand-right {
+  transform-origin: 275px 400px;
+  transition: transform 0.5s ease;
+}
+
+.interview-legacy .avatar-hand-speaking {
+  animation: avatarHandGesture 4s ease-in-out infinite;
+}
+
+@keyframes avatarHandGesture {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateY(-15px) rotate(-8deg) translateX(-10px);
+  }
+  60% {
+    transform: translateY(-10px) rotate(-4deg) translateX(-5px);
+  }
+  80% {
+    transform: translateY(-18px) rotate(-10deg) translateX(-12px);
+  }
+}
+
+
+

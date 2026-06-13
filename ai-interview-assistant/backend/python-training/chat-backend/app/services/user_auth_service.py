@@ -4,7 +4,8 @@ from configuration.logger.config import log
 from configuration.settings import configuration
 from core.common.aes_gcm import AesGCMRotation
 from core.common.jwt_token import encode_jwt_token
-from core.constants import TOKEN_PREFIX
+from core.constants import FIXED_ADMIN_EMAILS, TOKEN_PREFIX
+from core.enums.user_enum import UserRole
 from db.models import AuthIdentity, AuthProvider, OAuthToken, User
 from google.auth.transport import requests
 from google.oauth2 import id_token
@@ -29,13 +30,18 @@ class UserAuthService:
         try:
             identity = await self._get_identity(google_user.sub)
             if identity:
+                await self._ensure_fixed_admin_role(identity.user)
                 return identity.user
 
-            hashed_email = self.aes_gcm.sha256_hash(google_user.email)
+            hashed_email = self.aes_gcm.sha256_hash(
+                self._normalize_email(google_user.email)
+            )
             user = await self._get_user(hashed_email)
 
             if user is None:
                 user = await self._create_user(google_user=google_user)
+            else:
+                await self._ensure_fixed_admin_role(user)
 
             await self._create_identity(
                 user_id=user.id,
@@ -85,6 +91,43 @@ class UserAuthService:
             log.error(f"Failed to create access token: {e}")
             raise
 
+    async def refresh_access_token(self, refresh_token: str) -> OAuthTokenResponse:
+        try:
+            token_result = await self.db_session.execute(
+                select(OAuthToken)
+                .options(selectinload(OAuthToken.user))
+                .where(
+                    OAuthToken.refresh_token == refresh_token,
+                    OAuthToken.deleted_at.is_(None),
+                )
+            )
+            oauth_token = token_result.scalar_one_or_none()
+            if oauth_token is None or oauth_token.user is None:
+                raise ValueError("Invalid refresh token")
+
+            if oauth_token.created_at:
+                refresh_expires_at = oauth_token.created_at + timedelta(
+                    days=configuration.REFRESH_TOKEN_EXPIRE_DAYS
+                )
+                if refresh_expires_at < datetime.now(timezone.utc):
+                    oauth_token.deleted_at = datetime.now(timezone.utc)
+                    self.db_session.add(oauth_token)
+                    await self.db_session.commit()
+                    raise ValueError("Refresh token expired")
+
+            oauth_token.deleted_at = datetime.now(timezone.utc)
+            self.db_session.add(oauth_token)
+
+            result = await self.create_access_token(user=oauth_token.user)
+            await self.db_session.commit()
+            return result
+
+        except ValueError:
+            raise
+        except Exception as e:
+            log.error(f"Failed to refresh access token: {e}")
+            raise
+
     async def _get_identity(self, provider_user_id: str) -> AuthIdentity | None:
         result = await self.db_session.execute(
             select(AuthIdentity)
@@ -104,7 +147,9 @@ class UserAuthService:
         google_user: GoogleUserSchema,
     ) -> User:
         user = User(
-            email_hash=self.aes_gcm.sha256_hash(google_user.email),
+            email_hash=self.aes_gcm.sha256_hash(
+                self._normalize_email(google_user.email)
+            ),
             email_encrypted=self.aes_gcm.encrypt_data(google_user.email),
             name_hash=self.aes_gcm.sha256_hash(google_user.name)
             if google_user.name
@@ -113,11 +158,37 @@ class UserAuthService:
             if google_user.name
             else None,
             avatar_url=str(google_user.picture) if google_user.picture else None,
+            role=self._resolve_role_for_email(google_user.email),
         )
         self.db_session.add(user)
         await self.db_session.flush()
         await self.db_session.refresh(user)
         return user
+
+    @staticmethod
+    def _normalize_email(email: str | None) -> str:
+        return str(email or "").strip().lower()
+
+    def _resolve_role_for_email(self, email: str | None) -> UserRole:
+        if self._normalize_email(email) in self._fixed_admin_email_set():
+            return UserRole.ADMIN
+        return UserRole.USER
+
+    async def _ensure_fixed_admin_role(self, user: User) -> None:
+        if user.email_hash not in self._fixed_admin_email_hashes() or user.role == UserRole.ADMIN:
+            return
+        user.role = UserRole.ADMIN
+        self.db_session.add(user)
+        await self.db_session.flush()
+
+    def _fixed_admin_email_set(self) -> set[str]:
+        return {self._normalize_email(email) for email in FIXED_ADMIN_EMAILS}
+
+    def _fixed_admin_email_hashes(self) -> set[str]:
+        return {
+            self.aes_gcm.sha256_hash(email)
+            for email in self._fixed_admin_email_set()
+        }
 
     async def _get_provider(self, provider_name: str) -> AuthProvider | None:
         provider_name = provider_name.strip().lower()

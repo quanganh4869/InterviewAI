@@ -14,7 +14,7 @@ import {
   VideoOff,
 } from "lucide-react";
 import { INTERVIEW_QUESTIONS, PARSE_STAGES, READINESS_BARS } from "../data/mockData";
-import { Button, MetricCard, Pill, ProgressLine, SectionCard } from "../components/shared";
+import { Button, MetricCard, Pill, ProgressLine, SectionCard } from "../../../components/ui";
 import { formatTime } from "../utils/formatters";
 
 export function CandidateDashboardScreen({ onStartJourney, onHistory, onAnalytics }) {
@@ -30,7 +30,7 @@ export function CandidateDashboardScreen({ onStartJourney, onHistory, onAnalytic
       <section className="two-col">
         <SectionCard
           title="Kế hoạch trọng tâm hôm nay"
-          subtitle="Cập nhật CV, nhắm vị trí và mock interview"
+          subtitle="Cập nhật CV, nhắm vị trí và luyện phỏng vấn"
           action={<Pill tone="success">Đúng tiến độ</Pill>}
         >
           <ul className="clean-list">

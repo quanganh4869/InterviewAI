@@ -147,7 +147,7 @@ const INITIAL_CANDIDATES = [
   },
 ];
 
-const DEMO_INTERVIEW_VIDEO_URL =
+const SAMPLE_INTERVIEW_VIDEO_URL =
   "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
 
 const INITIAL_INTERVIEWS = [
@@ -161,7 +161,7 @@ const INITIAL_INTERVIEWS = [
     logic: 91,
     expression: 88,
     transcript: "Ứng viên trình bày rõ về tối ưu render và cache.",
-    recordingUrl: DEMO_INTERVIEW_VIDEO_URL,
+    recordingUrl: SAMPLE_INTERVIEW_VIDEO_URL,
   },
   {
     id: "pv02",
@@ -173,7 +173,7 @@ const INITIAL_INTERVIEWS = [
     logic: 82,
     expression: 87,
     transcript: "Ứng viên mô tả tốt flow UX và kiểm thử prototype.",
-    recordingUrl: DEMO_INTERVIEW_VIDEO_URL,
+    recordingUrl: SAMPLE_INTERVIEW_VIDEO_URL,
   },
   {
     id: "pv03",
@@ -185,7 +185,7 @@ const INITIAL_INTERVIEWS = [
     logic: 79,
     expression: 73,
     transcript: "Ứng viên xử lý bài toán dữ liệu tốt nhưng trình bày ngắn.",
-    recordingUrl: DEMO_INTERVIEW_VIDEO_URL,
+    recordingUrl: SAMPLE_INTERVIEW_VIDEO_URL,
   },
 ];
 
@@ -284,10 +284,10 @@ const suggestSkills = (description) => {
   return { hard: Array.from(new Set(hard)), soft: Array.from(new Set(soft)) };
 };
 
-function buildDemoPdfDataUri() {
+function buildSamplePdfDataUri() {
   if (typeof window === "undefined") return "";
   const stream =
-    "BT\n/F1 16 Tf\n72 740 Td\n(CV Demo - AI Interview) Tj\n0 -24 Td\n(Preview PDF in Candidate Drawer) Tj\nET";
+    "BT\n/F1 16 Tf\n72 740 Td\n(CV - AI Interview) Tj\n0 -24 Td\n(Preview PDF in Candidate Drawer) Tj\nET";
   const objects = [
     "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
     "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
@@ -421,7 +421,7 @@ export function EmployerDashboardScreen({
     .trim()
     .charAt(0)
     .toUpperCase();
-  const demoPdf = useMemo(() => buildDemoPdfDataUri(), []);
+  const samplePdf = useMemo(() => buildSamplePdfDataUri(), []);
 
   useEffect(() => subscribeTheme(setTheme), []);
   useEffect(() => {
@@ -471,10 +471,10 @@ export function EmployerDashboardScreen({
           jobTitle: job?.title || "Vị trí",
           interviewHistory,
           interviewScore: interviewHistory[0]?.score || 0,
-          cvPdf: demoPdf,
+          cvPdf: samplePdf,
         };
       }),
-    [jobs, demoPdf],
+    [jobs, samplePdf],
   );
 
   const interviews = useMemo(
@@ -1979,7 +1979,7 @@ export function EmployerDashboardScreen({
         },
         {
           priority: "P3",
-          task: "Thực hành mock interview 30 phút tập trung vào phản biện và follow-up.",
+          task: "Luyện phỏng vấn 30 phút tập trung vào phản biện và follow-up.",
         },
       ];
       const interviewMatrix = [

@@ -23,8 +23,11 @@ class User(Base, DateTimeMixin):
 
     plan_id = Column(Integer, ForeignKey("subscriptions_plans.id"), nullable=True)
 
+    additional_practice_slots = Column(Integer, nullable=False, default=0)
+
     plan = relationship("SubscriptionPlan", back_populates="users")
     identities = relationship("AuthIdentity", back_populates="user")
     tokens = relationship(
         "OAuthToken", back_populates="user", cascade="all, delete-orphan"
     )
+

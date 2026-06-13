@@ -15,6 +15,7 @@ class UserSchema(BaseModel):
     avatar_url: str | None = None
     role: UserRole | None = UserRole.USER
     plan_id: int | None = None
+    needs_role_plan_setup: bool = True
 
     @model_validator(mode="before")
     @classmethod
@@ -43,5 +44,8 @@ class UserSchema(BaseModel):
         prepared_data["name"] = (
             aes_gcm.decrypt_data(encrypted_name) if encrypted_name else None
         )
+        role = prepared_data.get("role") or UserRole.USER
+        plan_id = prepared_data.get("plan_id")
+        prepared_data["needs_role_plan_setup"] = role != UserRole.ADMIN and not plan_id
 
         return prepared_data

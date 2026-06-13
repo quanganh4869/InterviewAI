@@ -1,4 +1,4 @@
-import { Button, MetricCard, ProgressLine, SectionCard } from "../components/shared";
+import { Button, MetricCard, ProgressLine, SectionCard } from "../../../components/ui";
 
 export function AdminDashboardScreen({ onQuestionBank, onModelSettings }) {
   return (

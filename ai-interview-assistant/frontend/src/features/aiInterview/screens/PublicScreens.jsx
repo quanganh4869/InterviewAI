@@ -1,4 +1,4 @@
-import { Button, MetricCard, Pill, SectionCard } from "../components/shared";
+import { Button, Pill, SectionCard } from "../../../components/ui";
 
 export function LandingScreen({ onEnter, onLogin }) {
   return (
@@ -17,16 +17,6 @@ export function LandingScreen({ onEnter, onLogin }) {
               Đăng Nhập
             </Button>
           </div>
-          <div className="hero-stats">
-            <MetricCard label="Phỏng vấn mô phỏng mỗi tuần" value="12,408" delta="+18% so với tháng trước" tone="good" />
-            <MetricCard label="Mức tăng tự tin trung bình của ứng viên" value="+26%" delta="Sau 3 phiên luyện" tone="good" />
-            <MetricCard
-              label="Thời gian sàng lọc của tuyển dụng giảm"
-              value="41%"
-              delta="Trên 230 đội ngũ đang hoạt động"
-              tone="good"
-            />
-          </div>
         </div>
         <div className="hero-visual">
           <div className="glass-card">
@@ -38,10 +28,10 @@ export function LandingScreen({ onEnter, onLogin }) {
               ))}
             </div>
             <div className="hero-grid">
-              <span>Chất lượng câu trả lời</span>
-              <strong>89/100</strong>
-              <span>Mức khớp vị trí</span>
-              <strong>93%</strong>
+              <span>Transcript</span>
+              <strong>Thời gian thực</strong>
+              <span>Rubric</span>
+              <strong>Theo vị trí</strong>
               <span>Kiểm soát thiên lệch</span>
               <strong>Đã bật</strong>
             </div>
@@ -67,7 +57,7 @@ export function LandingScreen({ onEnter, onLogin }) {
         <SectionCard
           title="Quản Trị & Tuân Thủ"
           subtitle="Kiểm soát chất lượng AI và chính sách"
-          action={<Pill tone="warning">Sẵn sàng production</Pill>}
+          action={<Pill tone="warning">Sẵn sàng vận hành</Pill>}
         >
           <p>Vòng đời ngân hàng câu hỏi, định tuyến mô hình, ngưỡng an toàn và kiểm toán rõ ràng.</p>
         </SectionCard>
@@ -81,10 +71,7 @@ export function AuthScreen({
   setAuthForm,
   onContinue,
   onBack,
-  onUseDemoAccount,
-  onContinueWithGoogle,
   authError,
-  demoAccounts,
 }) {
   return (
     <div className="auth-layout">
@@ -96,7 +83,7 @@ export function AuthScreen({
               type="email"
               value={authForm.email}
               onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
-              placeholder="candidate@ai-interview.local"
+              placeholder="name@company.com"
             />
           </label>
           <label>
@@ -105,7 +92,7 @@ export function AuthScreen({
               type="password"
               value={authForm.password}
               onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
-              placeholder="123456"
+              placeholder="Nhập mật khẩu"
             />
           </label>
           <label className="inline-check">
@@ -124,34 +111,6 @@ export function AuthScreen({
           </div>
           {authError ? <p className="auth-error">{authError}</p> : null}
         </form>
-      </SectionCard>
-
-      <SectionCard title="Tài khoản demo cố định" subtitle="Đăng nhập nhanh theo từng tác nhân bằng mật khẩu">
-        <div className="role-card-grid">
-          {demoAccounts.map((account) => (
-            <button key={account.role} className="role-card" onClick={() => onUseDemoAccount(account.role)}>
-              <strong>{account.roleLabel}</strong>
-              <p>{account.name}</p>
-              <p>Email: {account.email}</p>
-              <p>Mật khẩu: {account.password}</p>
-            </button>
-          ))}
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Đăng nhập với Google (demo)" subtitle="Mỗi tài khoản Google được gắn quyền theo tác nhân">
-        <div className="role-card-grid">
-          {demoAccounts.map((account) => (
-            <button key={account.googleEmail} className="role-card" onClick={() => onContinueWithGoogle(account.googleEmail)}>
-              <strong>{account.roleLabel}</strong>
-              <p>{account.name}</p>
-              <p>Google: {account.googleEmail}</p>
-            </button>
-          ))}
-        </div>
-        <p className="google-note">
-          Luồng Google hiện là bản giả lập tạm thời để test phân quyền theo từng tác nhân.
-        </p>
       </SectionCard>
     </div>
   );

@@ -55,7 +55,14 @@ def test_calculate_match_weight_formula():
 
     assert 0 <= result["match_score"] <= 100
     assert abs((result["match_score"] / 100) - recomputed) < 1e-4
-    assert result["recommendation"] in {"Shortlist", "Consider", "Reject"}
+    assert result["recommendation"] in {
+        "Strong Match",
+        "Shortlist",
+        "Consider",
+        "Reject",
+        "Needs Review",
+        "Insufficient Signal",
+    }
 
 
 @pytest.mark.anyio

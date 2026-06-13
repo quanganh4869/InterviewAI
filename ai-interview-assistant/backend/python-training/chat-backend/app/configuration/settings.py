@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
     POSTGRES_PORT: int
+    POSTGRES_SSL_MODE: str = "disable"
     DB_ECHO: bool = False
     DB_INIT: bool = False
 
@@ -40,6 +41,7 @@ class Settings(BaseSettings):
     READ_ONLY_POSTGRES_PASSWORD: str
     READ_ONLY_POSTGRES_DB: str
     READ_ONLY_POSTGRES_PORT: int
+    READ_ONLY_POSTGRES_SSL_MODE: str = "disable"
 
     # AES-GCM
     APP_SECRET_ROTATION_KEY_MAPPING: dict = {}
@@ -57,6 +59,16 @@ class Settings(BaseSettings):
     CLOUDFLARE_R2_PRESIGNED_GET_EXPIRES_SECONDS: int = 600
     DOCUMENT_CV_PREFIX: str = ""
     DOCUMENT_JD_PREFIX: str = ""
+    INTERVIEW_RECORDING_PREFIX: str = "interviews"
+
+    # AI interview provider settings
+    OPENAI_API_KEY: str = ""
+    OPENAI_CHAT_MODEL: str = "gpt-4o-mini"
+    OPENAI_TRANSCRIBE_MODEL: str = "whisper-1"
+    GEMINI_API_KEY: str = ""
+    GEMINI_CHAT_MODEL: str = "gemini-3.1-flash-lite"
+    INTERVIEW_MAX_QUESTIONS: int = 6
+    LOCAL_WHISPER_URL: str = "http://localhost:8001/api/v1/stt/transcribe"
 
     # CV parser settings
     CV_PARSE_MAX_EXTRACTED_CHARS: str = "12000"
@@ -75,6 +87,7 @@ class Settings(BaseSettings):
 
     # CV/JD match scoring settings
     EMBEDDING_MODEL_NAME: str = "paraphrase-multilingual-MiniLM-L12-v2"
+    CV_JD_EMBEDDING_ENABLED: bool = True
     WEIGHT_SEMANTIC: float = 0.5
     WEIGHT_SKILL: float = 0.3
     WEIGHT_EXPERIENCE: float = 0.2
@@ -93,6 +106,17 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/v1_0/auth/login/google/callback"
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Email delivery settings
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "AI Interview Assistant"
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+    SMTP_TIMEOUT_SECONDS: int = 20
+
     # JWT
     JWT_ALGORITHM: str = "RS256"
     JWT_RSA_PRIVATE_KEY: str = ""
@@ -108,7 +132,8 @@ class Settings(BaseSettings):
             }
         },
     }
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     TOKEN_EXCLUDE_URLS: list[str] = [
         "/docs",
@@ -119,6 +144,7 @@ class Settings(BaseSettings):
         "/v1_0/auth/google/login",
         "/v1_0/auth/login/google/callback",
         "/v1_0/auth/login/google",
+        "/v1_0/auth/refresh",
     ]
 
 

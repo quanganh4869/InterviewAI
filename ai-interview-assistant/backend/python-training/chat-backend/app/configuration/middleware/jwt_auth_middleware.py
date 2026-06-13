@@ -1,3 +1,4 @@
+import hashlib
 from http import HTTPStatus
 from typing import Any
 
@@ -6,11 +7,13 @@ from authlib.jose.errors import ExpiredTokenError
 from configuration.logger.config import log
 from configuration.settings import configuration
 from core.common.global_variables import set_current_user
+from core.constants import FIXED_ADMIN_EMAILS
 from core.dependencies.oauth import get_current_user_claims
+from core.enums.user_enum import UserRole
 from core.messages import CustomMessageCode
 from db.db_connection import Database
 from db.models import OAuthToken, User
-from fastapi import Request, Response
+from fastapi import Response
 from sqlalchemy import select
 from starlette.authentication import (
     AuthCredentials,
@@ -60,12 +63,15 @@ class JWTAuthMiddleware(AuthenticationBackend):
             media_type=exc.media_type,
         )
 
-    async def authenticate(self, request: Request):
+    async def authenticate(self, request: HTTPConnection):
         """
         Authenticate the user based on JWT token in the request header.
         If authentication fails, raise an AuthenticationError.
         """
         try:
+            if request.scope.get("method") == "OPTIONS":
+                return
+
             if request.url.path in configuration.TOKEN_EXCLUDE_URLS:
                 return
 
@@ -112,7 +118,10 @@ class JWTAuthMiddleware(AuthenticationBackend):
         try:
             async with Database().get_instance_db() as db_session:
                 token_result = await db_session.execute(
-                    select(OAuthToken).where(OAuthToken.access_token == token)
+                    select(OAuthToken).where(
+                        OAuthToken.access_token == token,
+                        OAuthToken.deleted_at.is_(None),
+                    )
                 )
                 oauth_token = token_result.scalar_one_or_none()
 
@@ -130,6 +139,15 @@ class JWTAuthMiddleware(AuthenticationBackend):
                 if not user:
                     log.error("❌ User not found or inactive")
                     return None
+
+                admin_email_hashes = {
+                    hashlib.sha256(email.strip().lower().encode()).hexdigest()
+                    for email in FIXED_ADMIN_EMAILS
+                }
+                if user.email_hash in admin_email_hashes and user.role != UserRole.ADMIN:
+                    user.role = UserRole.ADMIN
+                    db_session.add(user)
+                    await db_session.commit()
 
                 return user
 

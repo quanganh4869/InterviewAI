@@ -1,6 +1,8 @@
 export function roleLabel(role) {
-  if (role === "candidate") return "Không Gian Ứng Viên";
-  if (role === "recruiter") return "Không Gian Tuyển Dụng";
+  if (role === "candidate" || role === "user") return "Không Gian Ứng Viên";
+  if (role === "recruiter" || role === "hr" || role === "HR") {
+    return "Không Gian Tuyển Dụng";
+  }
   return "Không Gian Quản Trị";
 }
 

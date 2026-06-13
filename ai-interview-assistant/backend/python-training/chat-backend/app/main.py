@@ -7,6 +7,7 @@ from configuration.middleware.jwt_auth_middleware import JWTAuthMiddleware
 from configuration.settings import configuration
 from db.db_connection import Database
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette_context.middleware import RawContextMiddleware
@@ -27,6 +28,14 @@ def create_app(skip_auth: bool = False) -> FastAPI:
         except Exception as e:
             log.error(f"❌ Database connection failed: {e}")
             raise e
+
+        # Check AI keys configuration
+        if configuration.OPENAI_API_KEY:
+            log.info("⚡ [PRODUCTION AI] OpenAI API configured. Real GPT scoring and Whisper transcription are ACTIVE.")
+        elif configuration.GEMINI_API_KEY:
+            log.info("⚡ [PRODUCTION AI] Gemini API configured. Real Gemini scoring, evaluation and transcription are ACTIVE.")
+        else:
+            log.warning("⚠️ [MOCK MODE] Neither OPENAI_API_KEY nor GEMINI_API_KEY is set. System will fallback to Mock provider.")
 
         log.info("Application startup complete.")
         yield
@@ -52,7 +61,15 @@ def register_middlewares(app: FastAPI):
         # TODO: add security middlewares
         pass
 
-    # add more middlewares here
+    # CORS must handle browser preflight (OPTIONS) before route/auth checks.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=configuration.BACKEND_CORS_ORIGINS,
+        allow_methods=configuration.BACKEND_CORS_METHODS,
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
+
     app.add_middleware(
         AuthenticationMiddleware,
         backend=JWTAuthMiddleware(),

@@ -16,33 +16,66 @@ class Database:
     _engine = None
     _sessionmaker: Optional[async_sessionmaker] = None
 
+    @staticmethod
+    def _is_ssl_enabled(ssl_mode: str | None) -> bool:
+        return str(ssl_mode or "").strip().lower() in {
+            "1",
+            "true",
+            "require",
+            "verify-ca",
+            "verify-full",
+        }
+
+    @staticmethod
+    def _sync_ssl_query(ssl_mode: str | None) -> dict[str, str]:
+        normalized = str(ssl_mode or "").strip().lower()
+        if not Database._is_ssl_enabled(normalized):
+            return {}
+        if normalized in {"1", "true"}:
+            normalized = "require"
+        return {"sslmode": normalized}
+
+    @staticmethod
+    def _async_connect_args(ssl_mode: str | None) -> dict[str, bool]:
+        if not Database._is_ssl_enabled(ssl_mode):
+            return {}
+        return {"ssl": True}
+
     @classmethod
     def get_url(cls):
+        settings = Settings()
         return URL.create(
             drivername="postgresql+asyncpg",
-            username=Settings().POSTGRES_USER,
-            password=Settings().POSTGRES_PASSWORD,
-            host=Settings().POSTGRES_SERVER,
-            port=Settings().POSTGRES_PORT,
-            database=Settings().POSTGRES_DB,
+            username=settings.POSTGRES_USER,
+            password=settings.POSTGRES_PASSWORD,
+            host=settings.POSTGRES_SERVER,
+            port=settings.POSTGRES_PORT,
+            database=settings.POSTGRES_DB,
         )
 
     @classmethod
     def get_sync_url(cls):
         settings = Settings()
-        return (
-            f"postgresql://{settings.POSTGRES_USER}:"
-            f"{settings.POSTGRES_PASSWORD}@"
-            f"{settings.POSTGRES_SERVER}:"
-            f"{settings.POSTGRES_PORT}/"
-            f"{settings.POSTGRES_DB}"
-        )
+        return URL.create(
+            drivername="postgresql",
+            username=settings.POSTGRES_USER,
+            password=settings.POSTGRES_PASSWORD,
+            host=settings.POSTGRES_SERVER,
+            port=settings.POSTGRES_PORT,
+            database=settings.POSTGRES_DB,
+            query=cls._sync_ssl_query(settings.POSTGRES_SSL_MODE),
+        ).render_as_string(hide_password=False)
 
     @classmethod
     def get_async_engine(cls):
+        settings = Settings()
         if cls._engine is None:
             cls._engine = create_async_engine(
-                cls.get_url(), echo=Settings().DB_ECHO, future=True, pool_pre_ping=True
+                cls.get_url(),
+                echo=settings.DB_ECHO,
+                future=True,
+                pool_pre_ping=True,
+                connect_args=cls._async_connect_args(settings.POSTGRES_SSL_MODE),
             )
         return cls._engine
 
@@ -81,20 +114,28 @@ class DatabaseReadOnly:
 
     @classmethod
     def get_url(cls):
+        settings = Settings()
         return URL.create(
             drivername="postgresql+asyncpg",
-            username=Settings().READ_ONLY_POSTGRES_USER,
-            password=Settings().READ_ONLY_POSTGRES_PASSWORD,
-            host=Settings().READ_ONLY_POSTGRES_SERVER,
-            port=Settings().READ_ONLY_POSTGRES_PORT,
-            database=Settings().READ_ONLY_POSTGRES_DB,
+            username=settings.READ_ONLY_POSTGRES_USER,
+            password=settings.READ_ONLY_POSTGRES_PASSWORD,
+            host=settings.READ_ONLY_POSTGRES_SERVER,
+            port=settings.READ_ONLY_POSTGRES_PORT,
+            database=settings.READ_ONLY_POSTGRES_DB,
         )
 
     @classmethod
     def get_async_engine(cls):
+        settings = Settings()
         if cls._engine is None:
             cls._engine = create_async_engine(
-                cls.get_url(), echo=Settings().DB_ECHO, future=True, pool_pre_ping=True
+                cls.get_url(),
+                echo=settings.DB_ECHO,
+                future=True,
+                pool_pre_ping=True,
+                connect_args=Database._async_connect_args(
+                    settings.READ_ONLY_POSTGRES_SSL_MODE
+                ),
             )
         return cls._engine
 

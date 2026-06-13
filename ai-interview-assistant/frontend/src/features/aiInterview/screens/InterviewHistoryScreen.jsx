@@ -1,198 +1,203 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { Search, History, ChevronLeft, ChevronRight, FileText } from "lucide-react";
-import { SectionCard, Pill } from "../components/shared";
-import { HISTORY_DATA } from "../data/mockData";
+import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  DataTable,
+  DataTableState,
+  DataToolbar,
+  EmptyState,
+  Pagination,
+  Pill,
+  SearchBar,
+  SectionCard,
+  Button,
+} from "../../../components/ui";
+import { Sparkles } from "lucide-react";
 
-export function InterviewHistoryScreen() {
-  const PAGE_SIZE = 8;
+
+const PAGE_SIZE = 8;
+
+const HISTORY_COLUMNS = [
+  { key: "select", label: "" },
+  { key: "session", label: "Ngày & mã" },
+  { key: "role", label: "Vị trí" },
+  { key: "type", label: "Loại phiên" },
+  { key: "score", label: "Điểm" },
+  { key: "result", label: "Trạng thái" },
+  { key: "action", label: "Thao tác", className: "text-right" },
+];
+
+function displaySessionType(type) {
+  return type === "practice" ? "Luyện tập" : "Chính thức";
+}
+
+function displayStatus(status) {
+  const labels = {
+    created: "Đã tạo",
+    questions_generated: "Sẵn sàng phỏng vấn",
+    in_progress: "Đang phỏng vấn",
+    submitted: "Đã nộp",
+    transcribing: "Đang chuyển giọng nói",
+    evaluating: "Đang đánh giá",
+    completed: "Hoàn tất",
+    failed: "Thất bại",
+  };
+  return labels[status] || status || "Chưa rõ";
+}
+
+export function InterviewHistoryScreen({ realSessions = [] }) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [modeFilter, setModeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [selectedSessionIds, setSelectedSessionIds] = useState([]);
   const [page, setPage] = useState(1);
-  const [selectedReport, setSelectedReport] = useState(null);
+
+  const toggleSelectSession = (id) => {
+    setSelectedSessionIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+
+  const sourceRows = useMemo(
+    () =>
+      realSessions.map((session) => ({
+        id: `INT-${session.id}`,
+        date: session.created_at ? new Date(session.created_at).toLocaleString("vi-VN") : "Chưa có",
+        role: session.job_posting?.title || session.practice_config?.target_role || "Phiên phỏng vấn",
+        type: session.session_type || "official",
+        score: Math.round(session.evaluation?.overall_score || 0),
+        status: session.evaluation?.evaluation?.hiring_recommendation || displayStatus(session.status),
+        raw: session,
+      })),
+    [realSessions],
+  );
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return HISTORY_DATA.filter((row) => {
+    return sourceRows.filter((row) => {
       const matchesQuery = !q || `${row.id} ${row.role}`.toLowerCase().includes(q);
-      const matchesMode = modeFilter === "all" || row.type === modeFilter;
-      return matchesQuery && matchesMode;
+      const matchesType = typeFilter === "all" || row.type === typeFilter;
+      return matchesQuery && matchesType;
     });
-  }, [query, modeFilter]);
+  }, [query, typeFilter, sourceRows]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const from = filteredRows.length ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const to = Math.min(page * PAGE_SIZE, filteredRows.length);
 
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Lịch sử phỏng vấn</h2>
-        <p className="text-sm" style={{ color: 'var(--text-soft)' }}>Xem lại các phiên luyện tập và kết quả đánh giá chi tiết.</p>
+        <h2 className="text-2xl font-extrabold" style={{ color: "var(--text)" }}>
+          Lịch sử phỏng vấn
+        </h2>
+        <p className="text-sm" style={{ color: "var(--text-soft)" }}>
+          Dữ liệu được đọc từ backend, gồm cả luyện tập và phỏng vấn chính thức.
+        </p>
       </header>
 
-      <section className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5" size={18} style={{ color: 'var(--text-soft)' }} />
-          <input 
-            type="text" 
-            placeholder="Tìm kiếm vị trí hoặc mã phiên..." 
-            className="w-full rounded-xl border pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-           <select 
-             className="px-4 py-2 rounded-xl border text-sm outline-none focus:ring-2 focus:ring-blue-500"
-             style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
-             value={modeFilter}
-             onChange={e => setModeFilter(e.target.value)}
-           >
-              <option value="all">Tất cả chế độ</option>
-              <option value="behavioral">Hành vi</option>
-              <option value="technical">Kỹ thuật</option>
-              <option value="case">Tình huống</option>
-           </select>
-        </div>
-      </section>
+      <DataToolbar>
+        <SearchBar
+          value={query}
+          placeholder="Tìm vị trí hoặc mã phiên"
+          className="md:max-w-md"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(1);
+          }}
+        />
+        <select
+          className="ds-input w-full px-3 md:w-48"
+          value={typeFilter}
+          onChange={(event) => {
+            setTypeFilter(event.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="all">Tất cả</option>
+          <option value="official">Chính thức</option>
+          <option value="practice">Luyện tập</option>
+        </select>
+      </DataToolbar>
 
-      <SectionCard title="Danh sách lịch sử">
-        <div className="saas-table-wrap">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Ngày & Mã</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Vị trí</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Chế độ</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Điểm AI</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Kết quả</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px] text-right">Thao tác</th>
+      <SectionCard title="Danh sách phiên">
+        <DataTable columns={HISTORY_COLUMNS}>
+          {pageRows.length ? (
+            pageRows.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedSessionIds.includes(row.raw.id)}
+                    onChange={() => toggleSelectSession(row.raw.id)}
+                    disabled={row.raw.status !== "completed"}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-55 disabled:cursor-not-allowed"
+                    aria-label="Chọn phiên so sánh"
+                  />
+                </td>
+                <td>
+                  <div className="font-bold" style={{ color: "var(--text)" }}>{row.id}</div>
+                  <div className="text-xs" style={{ color: "var(--text-soft)" }}>{row.date}</div>
+                </td>
+                <td className="font-semibold" style={{ color: "var(--text)" }}>{row.role}</td>
+                <td><Pill tone="default">{displaySessionType(row.type)}</Pill></td>
+                <td className="font-bold text-blue-600">{row.score}/100</td>
+                <td style={{ color: "var(--text-soft)" }}>{row.status}</td>
+                <td className="text-right">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(row.type === "practice" ? `/luyen-tap/${row.raw.id}/chi-tiet` : `/phong-van/${row.raw.id}/chi-tiet`)
+                    }
+                    className="font-bold text-blue-600 hover:underline"
+                  >
+                    Chi tiết
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {pageRows.map((row) => (
-                <tr key={row.id} className="transition" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td className="py-4 px-4">
-                    <div className="font-bold" style={{ color: 'var(--text)' }}>{row.id}</div>
-                    <div className="text-[10px]" style={{ color: 'var(--text-soft)' }}>{row.date}</div>
-                  </td>
-                  <td className="py-4 px-4 font-medium" style={{ color: 'var(--text)' }}>{row.role}</td>
-                  <td className="py-4 px-4">
-                    <Pill tone="default">{row.type === 'behavioral' ? 'Hành vi' : row.type === 'technical' ? 'Kỹ thuật' : 'Tình huống'}</Pill>
-                  </td>
-                  <td className="py-4 px-4 font-bold text-blue-600">{row.score}/100</td>
-                  <td className="py-4 px-4" style={{ color: 'var(--text-soft)' }}>{row.verdict}</td>
-                  <td className="py-4 px-4 text-right">
-                    <button 
-                      onClick={() => setSelectedReport(row)}
-                      className="text-blue-600 font-bold hover:underline"
-                    >
-                      Chi tiết
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))
 
-        {/* Pagination */}
-        <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-4">
-           <p className="text-xs text-slate-500">
-             Hiển thị {(page-1)*PAGE_SIZE + 1} - {Math.min(page*PAGE_SIZE, filteredRows.length)} của {filteredRows.length} phiên
-           </p>
-           <div className="flex gap-2">
-              <button 
-                disabled={page === 1}
-                onClick={() => setPage(p => p - 1)}
-                className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
-              >
-                 <ChevronLeft size={16} />
-              </button>
-              <button 
-                disabled={page === totalPages}
-                onClick={() => setPage(p => p + 1)}
-                className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
-              >
-                 <ChevronRight size={16} />
-              </button>
-           </div>
+          ) : (
+            <DataTableState colSpan={HISTORY_COLUMNS.length} className="p-4">
+              <EmptyState title="Không có phiên nào" />
+            </DataTableState>
+          )}
+        </DataTable>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border)] pt-4">
+          <p className="text-xs font-medium" style={{ color: "var(--text-soft)" }}>
+            Hiển thị {from} - {to} của {filteredRows.length} phiên
+          </p>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       </SectionCard>
 
-      {/* Report Modal */}
-      {selectedReport && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-           <div className="rounded-3xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200" style={{ backgroundColor: 'var(--card-bg)' }}>
-              <header className="flex justify-between items-start mb-8">
-                 <div>
-                    <h3 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Báo cáo chi tiết {selectedReport.id}</h3>
-                    <p style={{ color: 'var(--text-soft)' }}>Phiên {selectedReport.type} cho vị trí {selectedReport.role}</p>
-                 </div>
-                 <button onClick={() => setSelectedReport(null)} className="p-2 hover:bg-slate-100 rounded-full">
-                    <History size={20} style={{ color: 'var(--text-soft)' }} />
-                 </button>
-              </header>
-
-              <div className="grid md:grid-cols-3 gap-8">
-                 <aside className="space-y-6">
-                    <div className="p-6 rounded-2xl bg-blue-50 text-center">
-                       <div className="text-4xl font-bold text-blue-600 mb-1">{selectedReport.score}</div>
-                       <div className="text-xs font-bold text-blue-800 uppercase tracking-widest">Điểm AI</div>
-                    </div>
-                    <div className="space-y-4">
-                       <h4 className="font-bold text-sm">Thông tin phiên</h4>
-                       <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                             <span className="text-slate-500">Ngày thực hiện:</span>
-                             <span className="font-medium">{selectedReport.date}</span>
-                          </div>
-                          <div className="flex justify-between">
-                             <span className="text-slate-500">Chế độ:</span>
-                             <span style={{ color: 'var(--text-soft)' }}>Ngày thực hiện:</span>
-                             <span className="font-medium" style={{ color: 'var(--text)' }}>{selectedReport.date}</span>
-                          </div>
-                          <div className="flex justify-between">
-                             <span style={{ color: 'var(--text-soft)' }}>Chế độ:</span>
-                             <span className="font-medium italic" style={{ color: 'var(--text)' }}>{selectedReport.mode}</span>
-                          </div>
-                       </div>
-                    </div>
-                 </aside>
-
-                 <main className="md:col-span-2 space-y-8">
-                    <div className="space-y-4">
-                       <h4 className="flex items-center gap-2 font-bold" style={{ color: 'var(--text)' }}>
-                          <FileText size={18} className="text-blue-500" />
-                          Kết luận của AI
-                       </h4>
-                       <p className="text-sm leading-relaxed p-4 rounded-xl border" style={{ color: 'var(--text)', backgroundColor: 'var(--card-soft)', borderColor: 'var(--border)' }}>
-                          {selectedReport.verdict}. Buổi phỏng vấn cho thấy bạn có khả năng trình bày tốt, tư duy logic vững vàng nhưng cần chú ý hơn vào việc đưa ra các ví dụ định lượng thực tế.
-                       </p>
-                    </div>
-
-                    <div className="space-y-4">
-                       <h4 className="font-bold" style={{ color: 'var(--text)' }}>Khuyến nghị cải thiện</h4>
-                       <ul className="space-y-3">
-                          {[
-                            "Tập trung sâu hơn vào cấu trúc trả lời STAR.",
-                            "Bổ sung ví dụ về số liệu KPI/Impact cụ thể.",
-                            "Tối ưu độ trễ trong phản xạ trả lời (cần dưới 3s)."
-                          ].map((item, idx) => (
-                             <li key={idx} className="flex gap-3 text-sm" style={{ color: 'var(--text)' }}>
-                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">
-                                   {idx + 1}
-                                </span>
-                                {item}
-                             </li>
-                          ))}
-                       </ul>
-                    </div>
-                 </main>
-              </div>
-           </div>
+      {/* Floating comparative toolbar */}
+      {selectedSessionIds.length >= 2 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl border border-slate-800 flex items-center gap-6 animate-in slide-in-from-bottom-5 duration-300">
+          <span className="text-sm font-bold">Đã chọn {selectedSessionIds.length} phiên</span>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedSessionIds([])}
+              className="text-slate-400 hover:text-white border border-slate-700 bg-transparent hover:bg-slate-800"
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate(`/phong-van/so-sanh?sessionIds=${selectedSessionIds.join(",")}`)}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center"
+            >
+              <Sparkles size={14} className="mr-1.5" /> So sánh bằng Gemini
+            </Button>
+          </div>
         </div>
       )}
     </div>
+
   );
 }

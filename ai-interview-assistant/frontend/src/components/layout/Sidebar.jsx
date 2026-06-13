@@ -1,68 +1,88 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
-  FolderKanban,
   BriefcaseBusiness,
+  FileText,
+  FileSearch,
+  FolderKanban,
   History,
+  LayoutDashboard,
+  ShieldCheck,
   Sparkles,
-  ChevronLeft,
-  ChevronRight,
+  UsersRound,
+  Video,
 } from "lucide-react";
 import { useUser } from "../../features/UserContext";
 import "./Sidebar.css";
 
-const BASE_MENU_ITEMS = [
-  { path: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
-  { path: "/dashboard?screen=profileCv", label: "CV & JD", icon: FolderKanban },
-  { path: "/dashboard?screen=jobMatch", label: "Việc làm", icon: BriefcaseBusiness },
-  { path: "/dashboard?screen=interviewHistory", label: "Lịch sử", icon: History },
-  { path: "/dashboard?screen=servicePlans", label: "Nâng cấp", icon: Sparkles },
-];
+const MENU_BY_ROLE = {
+  admin: [
+    { path: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
+    { path: "/admin/users", label: "Người dùng", icon: ShieldCheck },
+    { path: "/admin/documents", label: "CV & JD", icon: FolderKanban },
+    { path: "/admin/interviews", label: "Các cuộc phỏng vấn", icon: Video },
+    { path: "/admin/matches", label: "Kết quả đối chiếu", icon: FileSearch },
+  ],
+  hr: [
+    { path: "/dashboard?screen=cvJdAnalysis", label: "So sánh CV/JD", icon: FileSearch },
+    { path: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
+    { path: "/dashboard?screen=profileCv", label: "JD", icon: FileText },
+    { path: "/dashboard?screen=insights", label: "Ứng viên", icon: UsersRound },
+    { path: "/dashboard?screen=interviewHistory", label: "Lịch sử", icon: History },
+  ],
+  user: [
+    { path: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
+    { path: "/dashboard?screen=profileCv", label: "CV", icon: FolderKanban },
+    { path: "/dashboard?screen=jobMatch", label: "Việc làm", icon: BriefcaseBusiness },
+    { path: "/dashboard?screen=interviewHistory", label: "Kết quả", icon: History },
+    { path: "/dashboard?screen=servicePlans", label: "Gói dịch vụ", icon: Sparkles },
+  ],
+};
+
+function getRoleKey(role) {
+  const normalized = String(role || "").toLowerCase();
+  if (normalized.includes("admin")) return "admin";
+  if (normalized.includes("hr") || normalized.includes("recruiter")) return "hr";
+  return "user";
+}
 
 const Sidebar = () => {
   const location = useLocation();
   const { user } = useUser();
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
-  const normalizedRole = String(user?.role || "").toLowerCase();
-  const isRecruiter =
-    normalizedRole.includes("hr") || normalizedRole.includes("recruiter");
-
-  const menuItems = React.useMemo(
-    () =>
-      BASE_MENU_ITEMS.map((item) =>
-        item.path === "/dashboard?screen=profileCv"
-          ? { ...item, label: isRecruiter ? "Quản lý JD" : "Quản lý CV" }
-          : item,
-      ),
-    [isRecruiter],
-  );
+  const roleKey = getRoleKey(user?.role);
+  const menuItems = MENU_BY_ROLE[roleKey] || MENU_BY_ROLE.user;
 
   const isActive = (path) => {
     const currentPath = location.pathname;
     const currentParams = new URLSearchParams(location.search);
-
     const [itemPath, itemQuery = ""] = String(path).split("?");
+
     if (itemPath !== currentPath) return false;
+    if (!itemQuery && itemPath.startsWith("/admin")) return true;
 
     const itemParams = new URLSearchParams(itemQuery);
     const itemScreen = itemParams.get("screen");
+    if (currentPath.startsWith("/dashboard/candidates") && itemScreen === "insights") {
+      return true;
+    }
     const currentScreen = currentParams.get("screen") || "overview";
-
     if (!itemScreen) return currentScreen === "overview";
     return currentScreen === itemScreen;
   };
 
   return (
-    <aside className={`sidebar-modern ${isCollapsed ? "collapsed" : ""}`}>
+    <aside className={`sidebar-modern role-${roleKey}`}>
       <div className="sidebar-header">
         <Link to="/" className="brand-link">
           <div className="brand-logo">AI</div>
-          {!isCollapsed && <span className="brand-name">Interview Assistant</span>}
+          <span className="brand-name">
+            Interview
+            <small>{roleKey === "admin" ? "Admin" : roleKey === "hr" ? "HR" : "User"}</small>
+          </span>
         </Link>
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="Điều hướng chính">
         {menuItems.map((item) => (
           <Link
             key={item.path}
@@ -71,20 +91,10 @@ const Sidebar = () => {
             title={item.label}
           >
             <item.icon className="nav-icon" size={20} />
-            {!isCollapsed && <span className="nav-label">{item.label}</span>}
+            <span className="nav-label">{item.label}</span>
           </Link>
         ))}
       </nav>
-
-      <div className="sidebar-footer">
-        <button
-          className="collapse-btn"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          title={isCollapsed ? "Expand" : "Collapse"}
-        >
-          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-        </button>
-      </div>
     </aside>
   );
 };

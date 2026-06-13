@@ -9,9 +9,15 @@ export function normalizeUserRole(role) {
     .trim()
     .toLowerCase();
 
-  if (value === "candidate" || value === "user") return "candidate";
-  if (value === "recruiter" || value === "hr") return "recruiter";
+  if (value === "candidate" || value === "user") return "user";
+  if (value === "recruiter" || value === "hr") return "hr";
+  if (value === "admin") return "admin";
   return "";
+}
+
+export function getRoleHomePath(role) {
+  const normalizedRole = normalizeUserRole(role);
+  return "/dashboard";
 }
 
 export function saveAuthSession({ accessToken, refreshToken }) {
@@ -23,6 +29,11 @@ export function saveAuthSession({ accessToken, refreshToken }) {
 export function getAccessToken() {
   if (typeof window === "undefined") return "";
   return window.localStorage.getItem(ACCESS_TOKEN_KEY) || "";
+}
+
+export function getRefreshToken() {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY) || "";
 }
 
 export function saveAuthUser(user) {
@@ -40,7 +51,9 @@ export function syncUserSessionFromBackend(user) {
     saveUserRole(normalizedRole);
   }
 
-  if (typeof user.needs_role_plan_setup === "boolean") {
+  if (normalizedRole === "admin") {
+    setOnboardingDone(true);
+  } else if (typeof user.needs_role_plan_setup === "boolean") {
     setOnboardingDone(!user.needs_role_plan_setup);
   } else {
     setOnboardingDone(Boolean(user.plan_id));
@@ -84,6 +97,14 @@ export function clearAuthSession() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
   window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+  window.localStorage.removeItem(USER_PROFILE_KEY);
+  window.localStorage.removeItem(ONBOARDING_DONE_KEY);
+  window.localStorage.removeItem(USER_ROLE_KEY);
+}
+
+export function clearAccessTokenOnly() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(ACCESS_TOKEN_KEY);
   window.localStorage.removeItem(USER_PROFILE_KEY);
   window.localStorage.removeItem(ONBOARDING_DONE_KEY);
   window.localStorage.removeItem(USER_ROLE_KEY);

@@ -1,4 +1,4 @@
-﻿import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Building2,
   CheckCircle2,
@@ -11,8 +11,14 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE_URL } from "../../config/api";
-import { getAccessToken, setOnboardingDone, syncUserSessionFromBackend } from "../../utils/authSession";
+import { authedFetch } from "../../api/authClient";
+import { useUser } from "../UserContext";
+import {
+  getAccessToken,
+  getRoleHomePath,
+  setOnboardingDone,
+  syncUserSessionFromBackend,
+} from "../../utils/authSession";
 
 type Role = "" | "candidate" | "recruiter";
 
@@ -89,38 +95,38 @@ const PLANS = [
   },
   {
     id: 3,
-    backendName: "enterprise",
-    name: "Doanh nghiệp",
-    price: "Liên hệ",
-    features: ["API cho đội nhóm", "Kịch bản tùy chỉnh"],
-    accent: "from-amber-100 to-orange-100",
+    backendName: "ultra",
+    name: "Ultra",
+    price: "$29/tháng",
+    features: ["Tính năng Pro", "Phỏng vấn thoại nâng cao", "Hỗ trợ 24/7"],
+    accent: "from-purple-100 to-indigo-100",
   },
 ];
 
 const PLAN_ACCENTS_BY_NAME: Record<string, string> = {
   FREE: "from-slate-100 to-slate-50",
   PRO: "from-blue-100 to-cyan-100",
-  ENTERPRISE: "from-amber-100 to-orange-100",
+  ULTRA: "from-purple-100 to-indigo-100",
 };
 
 const PLAN_LABEL_BY_NAME: Record<string, string> = {
   FREE: "Miễn phí",
   PRO: "Pro",
-  ENTERPRISE: "Doanh nghiệp",
+  ULTRA: "Ultra",
 };
 
 const PLAN_FEATURES_BY_NAME: Record<string, string[]> = {
-  FREE: ["Lượt phỏng vấn cơ bản", "Phản hồi cơ bản"],
+  FREE: ["1 buổi phỏng vấn AI/tháng", "Phản hồi cơ bản"],
   PRO: ["Phỏng vấn không giới hạn", "Đối sánh CV chuyên sâu", "Rubrics nâng cao"],
-  ENTERPRISE: ["API cho đội nhóm", "Kịch bản tùy chỉnh"],
+  ULTRA: ["Tính năng Pro", "Phỏng vấn thoại nâng cao", "Hỗ trợ 24/7"],
 };
 
 function formatPlanPrice(price: number, normalizedName: string): string {
   if (price <= 0 || normalizedName === "FREE") {
     return "$0/tháng";
   }
-  if (normalizedName === "ENTERPRISE") {
-    return "Liên hệ";
+  if (normalizedName === "ULTRA") {
+    return "$29/tháng";
   }
 
   const formattedPrice = new Intl.NumberFormat("vi-VN").format(price);
@@ -182,9 +188,6 @@ function RoleSelectionStep({
         <h2 className="font-display text-2xl font-bold text-slate-900 sm:text-3xl">
           Chào mừng bạn! Hãy cho chúng tôi biết bạn là ai
         </h2>
-        <p className="text-sm text-slate-600 sm:text-base">
-          Điều này giúp AI cá nhân hóa trải nghiệm phù hợp với bạn.
-        </p>
       </header>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -445,57 +448,28 @@ function PlanSelectionStep({
   );
 }
 async function fetchSubscriptionPlans(accessToken: string): Promise<PlanOption[]> {
-  const response = await fetch(`${API_BASE_URL}/v1_0/user/plans`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  const body = await response.json().catch(() => null);
-  if (!response.ok || !body?.success || !Array.isArray(body?.data)) {
-    throw new Error(body?.message || "Không thể tải danh sách gói.");
+  const data = await authedFetch("/v1_0/user/plans");
+  if (!Array.isArray(data)) {
+    throw new Error("Không thể tải danh sách gói.");
   }
 
-  const mappedPlans = mapBackendPlansToOptions(body.data as BackendPlan[]);
+  const mappedPlans = mapBackendPlansToOptions(data as BackendPlan[]);
   return mappedPlans.length ? mappedPlans : PLANS;
 }
 
 async function submitUserRole(accessToken: string, role: Role) {
   const roleName = role === "recruiter" ? "HR" : "user";
-  const response = await fetch(`${API_BASE_URL}/v1_0/user/role/${roleName}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  const body = await response.json().catch(() => null);
-  if (!response.ok || !body?.success || !body?.data) {
-    throw new Error(body?.message || "Không thể lưu role.");
-  }
-
-  return body.data;
+  return authedFetch(`/v1_0/user/role/${roleName}`, { method: "POST" });
 }
 
 async function submitUserPlan(accessToken: string, planName: string) {
   const safePlanName = String(planName || "").trim() || "free";
-  const response = await fetch(`${API_BASE_URL}/v1_0/user/plan/${safePlanName}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  const body = await response.json().catch(() => null);
-  if (!response.ok || !body?.success || !body?.data) {
-    throw new Error(body?.message || "Không thể lưu plan.");
-  }
-
-  return body.data;
+  return authedFetch(`/v1_0/user/plan/${safePlanName}`, { method: "POST" });
 }
 
 export default function OnboardingWizard({ initialRole }: OnboardingWizardProps) {
   const navigate = useNavigate();
+  const { setUser } = useUser();
   const accessToken = getAccessToken();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -586,11 +560,12 @@ export default function OnboardingWizard({ initialRole }: OnboardingWizardProps)
       }
 
       const normalizedRole = syncUserSessionFromBackend(updatedUser) || userData.role;
+      setUser(updatedUser);
       setOnboardingDone(true);
       setIsSuccess(true);
 
       setTimeout(() => {
-        navigate("/dashboard", { replace: true });
+        navigate(getRoleHomePath(normalizedRole), { replace: true });
       }, 700);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Không thể lưu role/plan.");

@@ -4,12 +4,6 @@ import { Link } from "react-router-dom";
 import SiteFooter from "../components/marketing/SiteFooter";
 import SiteHeader from "../components/marketing/SiteHeader";
 
-const stats = [
-  { value: "12,408", label: "Phiên phỏng vấn đã xử lý", growth: "+18.4%" },
-  { value: "+26%", label: "Giảm thời gian tuyển dụng", growth: "+4.2%" },
-  { value: "41%", label: "Tăng tỷ lệ qua vòng cuối", growth: "+9.7%" },
-];
-
 const featureCards = [
   {
     title: "Trải nghiệm ứng viên",
@@ -101,31 +95,18 @@ export default function LandingPage() {
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div className="rounded-lg bg-white p-3">
-                    <p className="text-slate-500">Chất lượng trả lời</p>
-                    <p className="font-semibold text-slate-900">89/100</p>
+                    <p className="text-slate-500">Transcript</p>
+                    <p className="font-semibold text-slate-900">Theo thời gian thực</p>
                   </div>
                   <div className="rounded-lg bg-white p-3">
-                    <p className="text-slate-500">Mức khớp vị trí</p>
-                    <p className="font-semibold text-slate-900">93%</p>
+                    <p className="text-slate-500">Rubric</p>
+                    <p className="font-semibold text-slate-900">Theo vị trí</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </motion.section>
-
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
-          {stats.map((item) => (
-            <article
-              key={item.value}
-              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"
-            >
-              <p className="text-3xl font-extrabold text-slate-900">{item.value}</p>
-              <p className="mt-2 text-sm text-slate-700">{item.label}</p>
-              <p className="mt-3 text-sm font-semibold text-emerald-600">{item.growth}</p>
-            </article>
-          ))}
-        </section>
 
         <section id="features" className="mt-12">
           <div className="mb-6 flex items-end justify-between gap-4">

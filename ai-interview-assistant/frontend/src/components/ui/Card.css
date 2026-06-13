@@ -1,19 +1,22 @@
 .card {
   background-color: var(--color-surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
   padding: 1rem;
-  transition: var(--transition);
+  transition: box-shadow var(--transition), border-color var(--transition);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-md);
+  border-color: rgba(37, 99, 235, 0.26);
+  box-shadow: var(--shadow-sm);
 }
 
 .card-title {
-  margin-bottom: 0.5rem;
-  font-size: 1.25rem;
+  margin: 0 0 0.5rem;
   color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 800;
 }
 
 .card-content {

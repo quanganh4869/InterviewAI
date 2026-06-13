@@ -9,6 +9,7 @@ import aiobotocore.session
 from botocore.exceptions import ClientError
 from configuration.logger.config import log
 from configuration.settings import configuration
+from core.exception_handler.custom_exception import ExceptionValueError
 from fastapi import UploadFile
 
 
@@ -72,11 +73,33 @@ class R2FileStorageService(FileStorageService):
         self.access_key = configuration.CLOUDFLARE_R2_ACCESS_KEY_ID
         self.secret_key = configuration.CLOUDFLARE_R2_SECRET_ACCESS_KEY
 
+    def _ensure_configured(self) -> None:
+        missing_fields = [
+            field_name
+            for field_name, value in {
+                "CLOUDFLARE_R2_ACCESS_KEY_ID": self.access_key,
+                "CLOUDFLARE_R2_SECRET_ACCESS_KEY": self.secret_key,
+                "CLOUDFLARE_R2_ENDPOINT": self.endpoint_url,
+                "CLOUDFLARE_R2_BUCKET_NAME": self.bucket_name,
+            }.items()
+            if not str(value or "").strip()
+        ]
+        if missing_fields:
+            raise ExceptionValueError(
+                message=(
+                    "Cloudflare R2 storage is not configured. "
+                    "Set required R2 credentials or use STORAGE_STRATEGY=local. "
+                    f"Missing: {', '.join(missing_fields)}."
+                ),
+                status_code=503,
+            )
+
     def _build_object_key(self, sub_dir: str, file_name: str) -> str:
         safe_name = _sanitize_filename(file_name)
         return f"{sub_dir}/{uuid.uuid4().hex}_{safe_name}"
 
     async def save_file(self, file: UploadFile, sub_dir: str) -> str:
+        self._ensure_configured()
         object_key = self._build_object_key(sub_dir=sub_dir, file_name=file.filename)
         content_type = file.content_type or "application/octet-stream"
         body = await file.read()
@@ -100,6 +123,7 @@ class R2FileStorageService(FileStorageService):
         return object_key
 
     async def delete_file(self, storage_key: str) -> None:
+        self._ensure_configured()
         async with self.session.create_client(
             "s3",
             region_name=self.region_name,
@@ -110,6 +134,7 @@ class R2FileStorageService(FileStorageService):
             await client.delete_object(Bucket=self.bucket_name, Key=storage_key)
 
     async def object_exists(self, object_key: str) -> bool:
+        self._ensure_configured()
         try:
             async with self.session.create_client(
                 "s3",
@@ -131,6 +156,7 @@ class R2FileStorageService(FileStorageService):
         object_key: str,
         expires_seconds: int = 600,
     ) -> dict[str, Any]:
+        self._ensure_configured()
         params: dict[str, Any] = {"Bucket": self.bucket_name, "Key": object_key}
         async with self.session.create_client(
             "s3",

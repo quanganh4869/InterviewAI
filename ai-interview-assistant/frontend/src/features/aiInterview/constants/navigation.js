@@ -1,4 +1,10 @@
 export const SCREEN_CONFIG = {
+  cvJdAnalysis: {
+    title: "So sánh CV/JD",
+    sidebarLabel: "So sánh CV/JD",
+    icon: "job",
+    role: "recruiter",
+  },
   dashboardOverview: {
     title: "Tổng quan",
     sidebarLabel: "Tổng quan",
@@ -12,8 +18,8 @@ export const SCREEN_CONFIG = {
     role: "all",
   },
   jobMatch: {
-    title: "Việc làm & Đơn ứng tuyển",
-    sidebarLabel: "Việc làm & Đơn ứng tuyển",
+    title: "Việc làm và đơn ứng tuyển",
+    sidebarLabel: "Việc làm và đơn ứng tuyển",
     icon: "job",
     role: "all",
   },
@@ -51,9 +57,8 @@ export const SIDEBAR_GROUPS = [
 ];
 
 export const INTERVIEW_WIZARD_STEPS = [
-  "Tải CV/JD",
-  "Thiết lập Cam/Mic",
-  "Phòng chờ",
-  "Phỏng vấn",
+  "Chọn CV & JD",
+  "Kiểm tra thiết bị",
+  "Phòng chờ AI",
+  "Phỏng vấn theo vòng",
 ];
-

@@ -1,5 +1,5 @@
 import { PROGRESS_LINE } from "../data/mockData";
-import { Button, MetricCard, Pill, ProgressLine, SectionCard } from "../components/shared";
+import { Button, MetricCard, Pill, ProgressLine, SectionCard } from "../../../components/ui";
 
 export function ResultSummaryScreen({ onDetails, onRetry }) {
   return (
@@ -126,7 +126,7 @@ export function HistoryScreen({ historyFilter, setHistoryFilter, rows, onAnalyti
         {rows.length === 0 ? (
           <div className="empty-state">
             <strong>Không có phiên nào cho bộ lọc này.</strong>
-            <p>Hãy thử danh mục khác hoặc chạy phiên mock mới để tạo dữ liệu.</p>
+            <p>Hãy thử danh mục khác hoặc tạo phiên phỏng vấn mới.</p>
           </div>
         ) : (
           <div className="table">

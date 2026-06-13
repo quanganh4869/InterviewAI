@@ -1,9 +1,9 @@
-﻿name: datn
+name: DATN
 
 services:
-  postgres:
+  database:
     image: postgres:16-alpine
-    container_name: datn-postgres
+    container_name: datn-database
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-AIinterview}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -11,36 +11,67 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - datn_postgres_data:/var/lib/postgresql/data
+      - datn_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - datn-network
 
   backend:
     container_name: datn-backend
     build:
       context: ./backend/python-training/chat-backend
       dockerfile: Dockerfile.datn
+    env_file:
+      - ./backend/python-training/chat-backend/app/configuration/.env
     environment:
-      POSTGRES_SERVER: postgres
-      POSTGRES_PORT: 5432
+      POSTGRES_SERVER: ${POSTGRES_SERVER:-database}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_DB: ${POSTGRES_DB:-AIinterview}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
-      READ_ONLY_POSTGRES_SERVER: postgres
-      READ_ONLY_POSTGRES_PORT: 5432
+      POSTGRES_SSL_MODE: ${POSTGRES_SSL_MODE:-disable}
+      READ_ONLY_POSTGRES_SERVER: ${READ_ONLY_POSTGRES_SERVER:-${POSTGRES_SERVER:-database}}
+      READ_ONLY_POSTGRES_PORT: ${READ_ONLY_POSTGRES_PORT:-${POSTGRES_PORT:-5432}}
       READ_ONLY_POSTGRES_DB: ${POSTGRES_DB:-AIinterview}
       READ_ONLY_POSTGRES_USER: ${POSTGRES_USER:-postgres}
       READ_ONLY_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
+      READ_ONLY_POSTGRES_SSL_MODE: ${READ_ONLY_POSTGRES_SSL_MODE:-${POSTGRES_SSL_MODE:-disable}}
+      LOCAL_WHISPER_URL: ${LOCAL_WHISPER_URL:-http://ai-service:8001/api/v1/stt/transcribe}
     ports:
       - "8000:8000"
+    volumes:
+      - datn_uploads:/app/uploads
+    command: >
+      sh -c "alembic -c /app/alembic.ini upgrade head &&
+      uvicorn main:app --host 0.0.0.0 --port 8000"
     depends_on:
-      postgres:
+      database:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - datn-network
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: datn-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123456}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - datn_pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - datn-network
 
   frontend:
     container_name: datn-frontend
@@ -48,12 +79,35 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.datn
       args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:20-alpine}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        VITE_AI_SERVICE_URL: ${VITE_AI_SERVICE_URL:-http://localhost:8001}
     ports:
       - "3000:80"
     depends_on:
       - backend
+      - ai-service
     restart: unless-stopped
+    networks:
+      - datn-network
+
+  ai-service:
+    container_name: datn-ai-service
+    build:
+      context: ../AI
+      dockerfile: Dockerfile
+    env_file:
+      - ../AI/.env
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+    networks:
+      - datn-network
 
 volumes:
-  datn_postgres_data:
+  datn_db_data:
+  datn_pgadmin_data:
+  datn_uploads:
+
+networks:
+  datn-network:

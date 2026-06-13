@@ -1,4 +1,5 @@
 from typing import Annotated
+from urllib.parse import urlencode
 
 from configuration.logger.config import log
 from configuration.settings import configuration
@@ -10,6 +11,7 @@ from core.messages import CustomMessageCode
 from db.db_connection import Database
 from fastapi import APIRouter, Depends, status
 from schemas.requests.google_auth_schema import GoogleLoginRequest
+from schemas.requests.user_auth_schema import RefreshTokenRequest
 from services.google_auth_service import GoogleAuthService
 from services.key_manager_service import KeyManager
 from services.user_auth_service import UserAuthService
@@ -62,10 +64,11 @@ async def google_login_callback(
         auth_service = UserAuthService(db_session)
         login_result = await auth_service.handle_google_login_callback(code=code)
 
-        redirect_url = (
-            f"{configuration.FRONTEND_URL}/google-callback#"
-            f"access_token={login_result.access_token}&token_type=bearer"
-        )
+        redirect_url = f"{configuration.FRONTEND_URL}/google-callback#{urlencode({
+            'access_token': login_result.access_token,
+            'refresh_token': login_result.refresh_token,
+            'token_type': 'bearer',
+        })}"
         return RedirectResponse(url=redirect_url)
 
     except ExceptionValueError as e:
@@ -115,6 +118,37 @@ async def login_google(
 
     except Exception as e:
         log.error(f"Failed to process Google login POST: {e}")
+        return ApiResponse.error(
+            message=CustomMessageCode.UNKNOWN_ERROR.title,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@router.post("/refresh")
+@api_version(1, 0)
+@measure_time
+async def refresh_token(
+    request_data: RefreshTokenRequest,
+    db_session: Annotated[AsyncSession, Depends(Database.get_async_db_session)],
+):
+    try:
+        auth_service = UserAuthService(db_session=db_session)
+        result = await auth_service.refresh_access_token(
+            refresh_token=request_data.refresh_token,
+        )
+        return ApiResponse.success(data=result.model_dump())
+
+    except ValueError as e:
+        log.error(f"Invalid refresh token: {e}")
+        return ApiResponse.error(
+            message=CustomMessageCode.TOKEN_EXPIRED.title,
+            message_code=CustomMessageCode.TOKEN_EXPIRED.code,
+            message_errors=[str(e)],
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    except Exception as e:
+        log.error(f"Failed to refresh token: {e}")
         return ApiResponse.error(
             message=CustomMessageCode.UNKNOWN_ERROR.title,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

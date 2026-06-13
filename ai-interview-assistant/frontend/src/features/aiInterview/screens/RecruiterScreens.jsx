@@ -1,4 +1,4 @@
-import { Button, MetricCard, SectionCard } from "../components/shared";
+import { Button, MetricCard, SectionCard } from "../../../components/ui";
 
 export function HrDashboardScreen({ onCompare, onCandidateJourney }) {
   return (

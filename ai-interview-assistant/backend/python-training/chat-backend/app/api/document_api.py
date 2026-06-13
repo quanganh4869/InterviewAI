@@ -12,10 +12,12 @@ from db.db_connection import Database
 from db.models.document import Document
 from db.models.users import User
 from fastapi import APIRouter, Depends, File, Form, Query, Security, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer
 from schemas.requests.document_schema import (
     DocumentAccessUrlRequest,
     DocumentMatchScoreRequest,
+    DocumentUpdateRequest,
 )
 from schemas.responses.document_schema import (
     CvParsedResponse,
@@ -33,7 +35,10 @@ bearer_scheme = HTTPBearer(auto_error=False)
 router = APIRouter(dependencies=[Security(bearer_scheme)])
 
 DBSessionDep = Annotated[AsyncSession, Depends(Database.get_async_db_session)]
-UserOrHRDep = Annotated[User, Depends(require_role([UserRole.USER, UserRole.HR]))]
+UserOrHRDep = Annotated[
+    User,
+    Depends(require_role([UserRole.USER, UserRole.HR, UserRole.ADMIN])),
+]
 
 
 def get_document_service(db_session: DBSessionDep) -> DocumentService:
@@ -172,6 +177,40 @@ async def get_document_access_url(
     )
 
 
+@router.get("/{document_id}/content")
+@api_version(1, 0)
+@measure_time
+async def get_local_document_content(
+    document_id: int,
+    user: UserOrHRDep,
+    service: DocumentServiceDep,
+    image_only: bool = Query(default=False),
+):
+    try:
+        document, file_path = await service.get_local_content(
+            user=user,
+            document_id=document_id,
+            image_only=image_only,
+        )
+        return FileResponse(
+            path=file_path,
+            media_type=document.mime_type or "application/octet-stream",
+            filename=document.file_name,
+        )
+    except ExceptionValueError as exc:
+        log.error(
+            "Failed to read local document content for user %s document %s: %s",
+            user.id,
+            document_id,
+            exc.message,
+        )
+        return ApiResponse.error(
+            message=exc.message,
+            message_code=exc.message_code,
+            status_code=exc.status_code,
+        )
+
+
 @router.get("")
 @api_version(1, 0)
 @measure_time
@@ -209,6 +248,28 @@ async def delete_document(
             service=service,
             user=user,
             document_id=document_id,
+        ),
+    )
+
+
+@router.patch("/{document_id}")
+@api_version(1, 0)
+@measure_time
+async def update_document(
+    document_id: int,
+    payload: DocumentUpdateRequest,
+    user: UserOrHRDep,
+    service: DocumentServiceDep,
+):
+    return await _service_response(
+        user_id=user.id,
+        action="update document",
+        success_message="Document updated successfully",
+        producer=lambda: _update_document_data(
+            service=service,
+            user=user,
+            document_id=document_id,
+            payload=payload,
         ),
     )
 
@@ -307,6 +368,24 @@ async def _delete_document_data(
 ):
     response = await service.delete_document(user=user, document_id=document_id)
     return DocumentDeleteResponse(**response).model_dump()
+
+
+async def _update_document_data(
+    service: DocumentService,
+    user: User,
+    document_id: int,
+    payload: DocumentUpdateRequest,
+):
+    document = await service.update_document(
+        user=user,
+        document_id=document_id,
+        file_name=payload.file_name,
+        target_role=payload.target_role,
+        title=payload.title,
+        company=payload.company,
+        summary=payload.summary,
+    )
+    return _serialize_document(document)
 
 
 async def _parse_cv_data(

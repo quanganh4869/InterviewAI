@@ -24,6 +24,7 @@ class DocumentDownloadUrlResponse(BaseModel):
     document_id: int
     download_url: str
     expires_in: int
+    download_mode: str = "presigned"
 
 
 class DocumentDeleteResponse(BaseModel):
