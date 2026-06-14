@@ -45,3 +45,6 @@ yarn-error.log*
 **/coverage/
 **/*.sqlite3
 **/*.db
+
+# GitHub Workflows
+.github/workflows/
