@@ -7,6 +7,9 @@ class PlanResponse(BaseModel):
     name: SubscriptionPlanName
     price: int
     description: str | None = None
+    practice_sessions_per_day: int | None = None
+    cv_upload_limit: int | None = None
+    jd_upload_limit: int | None = None
 
     class Config:
         from_attributes = True

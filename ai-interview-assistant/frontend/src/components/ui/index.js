@@ -23,3 +23,5 @@ export { SectionCard } from "./SectionCard";
 export { Skeleton } from "./Skeleton";
 export { Stepper } from "./Stepper";
 export { ThemeToggleButton } from "./ThemeToggleButton";
+export { ChatbotWidget } from "./ChatbotWidget";
+

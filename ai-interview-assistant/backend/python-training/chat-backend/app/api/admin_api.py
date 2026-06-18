@@ -14,9 +14,11 @@ from fastapi.security import HTTPBearer
 from schemas.requests.admin_schema import (
     AdminUpdateUserRoleRequest,
     AdminCreateUserRequest,
+    AdminUpdatePlanRequest,
     AdminUpdateUserRequest,
 )
 from services.admin_user_service import AdminUserService
+from services.plan_service import PlanService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -31,6 +33,13 @@ def get_admin_user_service(db_session: DBSessionDep) -> AdminUserService:
 
 
 AdminUserServiceDep = Annotated[AdminUserService, Depends(get_admin_user_service)]
+
+
+def get_plan_service(db_session: DBSessionDep) -> PlanService:
+    return PlanService(db_session)
+
+
+PlanServiceDep = Annotated[PlanService, Depends(get_plan_service)]
 
 
 @router.get("/users")
@@ -63,6 +72,47 @@ async def get_statistics(
     try:
         stats = await service.get_statistics()
         return ApiResponse.success(data=stats)
+    except ExceptionValueError as e:
+        return ApiResponse.error(
+            message=e.message,
+            message_code=e.message_code,
+            status_code=e.status_code,
+        )
+
+
+@router.get("/plans")
+@api_version(1, 0)
+@measure_time
+async def list_admin_plans(
+    _: AdminDep,
+    service: PlanServiceDep,
+):
+    plans = await service.list_plans()
+    return ApiResponse.success(data=[plan.model_dump() for plan in plans])
+
+
+@router.patch("/plans/{plan_id}")
+@api_version(1, 0)
+@measure_time
+async def update_admin_plan(
+    plan_id: int,
+    payload: AdminUpdatePlanRequest,
+    _: AdminDep,
+    service: PlanServiceDep,
+):
+    try:
+        plan = await service.update_plan(
+            plan_id=plan_id,
+            price=payload.price,
+            description=payload.description,
+            practice_sessions_per_day=payload.practice_sessions_per_day,
+            cv_upload_limit=payload.cv_upload_limit,
+            jd_upload_limit=payload.jd_upload_limit,
+        )
+        return ApiResponse.success(
+            data=plan.model_dump(),
+            message="Plan updated successfully",
+        )
     except ExceptionValueError as e:
         return ApiResponse.error(
             message=e.message,

@@ -29,6 +29,16 @@ function excerpt(job) {
   return text.length > 220 ? `${text.slice(0, 220)}...` : text || "JD chưa có mô tả ngắn.";
 }
 
+function buildPracticeStartPath({ jobPostingId, cvDocumentId, targetRole, level } = {}) {
+  const params = new URLSearchParams();
+  if (jobPostingId) params.set("jobPostingId", String(jobPostingId));
+  if (cvDocumentId) params.set("cvDocumentId", String(cvDocumentId));
+  if (targetRole) params.set("targetRole", targetRole);
+  if (level) params.set("level", level);
+  const query = params.toString();
+  return query ? `/luyen-tap/tao-moi?${query}` : "/luyen-tap/tao-moi";
+}
+
 function PageShell({ children }) {
   return (
     <MainLayout>
@@ -216,24 +226,12 @@ export function CandidateJobDetailPage() {
   const startPracticeInterview = async () => {
     if (!job) return;
     setIsStartingPractice(true);
-    try {
-      const session = await createInterviewSession({
-        sessionType: "practice",
-        jobPostingId: job.id,
-        cvDocumentId: existingCvId || cvs[0]?.id || null,
-        practiceConfig: {
-          target_role: job.title || "Target Role",
-          focus: "General interview",
-          level: job.level || "General",
-          language: "vi",
-        },
-      });
-      navigate(`/luyen-tap/${session.id}/phong`);
-    } catch (err) {
-      setError(err?.message || "Không thể tạo phòng luyện tập.");
-    } finally {
-      setIsStartingPractice(false);
-    }
+    navigate(buildPracticeStartPath({
+      jobPostingId: job.id,
+      cvDocumentId: existingCvId || cvs[0]?.id || "",
+      targetRole: job.title || "",
+      level: job.level || "",
+    }));
   };
 
   return (
@@ -632,27 +630,13 @@ export function CvJdReportPage() {
   };
 
   const startPracticeInterview = async () => {
-    if (!report?.job_posting_id) return;
+    if (!report) return;
     setIsStartingPractice(true);
-    try {
-      const session = await createInterviewSession({
-        sessionType: "practice",
-        jobPostingId: report.job_posting_id,
-        cvDocumentId: report.cv_document_id || null,
-        analysisId: report.id,
-        practiceConfig: {
-          target_role: report.job_title_snapshot || "Target Role",
-          focus: "General interview",
-          level: "General",
-          language: "vi",
-        },
-      });
-      navigate(`/luyen-tap/${session.id}/phong`);
-    } catch (err) {
-      setError(err?.message || "Không thể tạo phòng luyện tập.");
-    } finally {
-      setIsStartingPractice(false);
-    }
+    navigate(buildPracticeStartPath({
+      jobPostingId: report.job_posting_id || "",
+      cvDocumentId: report.cv_document_id || "",
+      targetRole: report.job_title_snapshot || "",
+    }));
   };
 
   const gap = report?.skill_gap || {};

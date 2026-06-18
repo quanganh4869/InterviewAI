@@ -30,6 +30,8 @@ function getPageTitle(location, role) {
   if (location.pathname === "/admin/users") return "Quản lý người dùng";
   if (location.pathname === "/admin/documents") return "Quản lý CV & JD";
   if (location.pathname === "/admin/match") return "Đối chiếu CV/JD";
+  if (location.pathname === "/luyen-tap/tao-moi") return "Tạo phiên luyện tập";
+  if (location.pathname.startsWith("/luyen-tap/")) return "Luyện phỏng vấn AI";
 
   const query = new URLSearchParams(location.search);
   const screen = query.get("screen") || "overview";

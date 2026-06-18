@@ -5,6 +5,7 @@ import AdminDocumentsPage from "./pages/AdminDocumentsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminInterviewsPage from "./pages/AdminInterviewsPage";
 import AdminMatchesPage from "./pages/AdminMatchesPage";
+import AdminPlansPage from "./pages/AdminPlansPage";
 import DashboardPage from "./pages/DashboardPage";
 import InterviewResultPage from "./pages/InterviewResultPage";
 import InterviewSessionDetailPage from "./pages/InterviewSessionDetailPage";
@@ -26,7 +27,7 @@ import PricingPage from "./pages/PricingPage";
 import ProductPage from "./pages/ProductPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import { UserProvider, useUser } from "./features/UserContext";
-import { NoticeModal } from "./components/ui";
+import { NoticeModal, ChatbotWidget } from "./components/ui";
 import {
   getAccessToken,
   getAuthUser,
@@ -166,6 +167,14 @@ export default function App() {
             element={
               <RequireAuth allowedRoles={["admin"]}>
                 <AdminMatchesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/plans"
+            element={
+              <RequireAuth allowedRoles={["admin"]}>
+                <AdminPlansPage />
               </RequireAuth>
             }
           />
@@ -339,6 +348,7 @@ export default function App() {
           message={notice?.message}
           onClose={() => setNotice(null)}
         />
+        <ChatbotWidget />
       </UserProvider>
     </BrowserRouter>
   );

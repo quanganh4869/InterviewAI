@@ -1,4 +1,5 @@
 from api.admin_api import router as admin_router
+from api.assistant_api import router as assistant_router
 from api.cv_jd_analysis_api import router as cv_jd_analysis_router
 from api.document_api import router as document_router
 from api.health_check import router as health_check_router
@@ -15,6 +16,7 @@ router.include_router(health_check_router, tags=["health-check"])
 router.include_router(oauth_router, prefix="/auth", tags=["OAuth"])
 router.include_router(user_router, prefix="/user", tags=["User"])
 router.include_router(admin_router, prefix="/admin", tags=["Admin"])
+router.include_router(assistant_router, prefix="/assistant", tags=["Assistant"])
 router.include_router(
     cv_jd_analysis_router,
     prefix="/cv-jd-analysis",

@@ -94,6 +94,9 @@ class JWTAuthMiddleware(AuthenticationBackend):
                 raise _AuthenticationError()
 
             user = await self.validate_token(token=token)
+            if not user:
+                log.error("âŒ JWTAuthMiddleware token is valid but not registered or user is inactive")
+                raise _AuthenticationError()
             set_current_user(user)
 
             # Note that this return uses a non-standard mode, so when authentication passes,

@@ -1,5 +1,11 @@
 name: DATN
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   database:
     image: postgres:16-alpine
@@ -18,6 +24,7 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    logging: *default-logging
     networks:
       - datn-network
 
@@ -42,6 +49,7 @@ services:
       READ_ONLY_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
       READ_ONLY_POSTGRES_SSL_MODE: ${READ_ONLY_POSTGRES_SSL_MODE:-${POSTGRES_SSL_MODE:-disable}}
       LOCAL_WHISPER_URL: ${LOCAL_WHISPER_URL:-http://ai-service:8001/api/v1/stt/transcribe}
+      TESSERACT_CMD: /usr/bin/tesseract
     ports:
       - "8000:8000"
     volumes:
@@ -52,7 +60,11 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      ai-service:
+        condition: service_healthy
     restart: unless-stopped
+    init: true
+    logging: *default-logging
     networks:
       - datn-network
 
@@ -70,6 +82,8 @@ services:
       database:
         condition: service_healthy
     restart: unless-stopped
+    profiles: ["tools"]
+    logging: *default-logging
     networks:
       - datn-network
 
@@ -80,14 +94,18 @@ services:
       dockerfile: Dockerfile.datn
       args:
         NODE_IMAGE: ${NODE_IMAGE:-node:20-alpine}
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
-        VITE_AI_SERVICE_URL: ${VITE_AI_SERVICE_URL:-http://localhost:8001}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_AI_SERVICE_URL: ${VITE_AI_SERVICE_URL:-/ai-api}
     ports:
       - "3000:80"
     depends_on:
-      - backend
-      - ai-service
+      backend:
+        condition: service_started
+      ai-service:
+        condition: service_healthy
     restart: unless-stopped
+    init: true
+    logging: *default-logging
     networks:
       - datn-network
 
@@ -98,9 +116,32 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ../AI/.env
+    environment:
+      AI_LITE_MODE: "true"
+      DEBUG: "false"
+      CHROMA_DB_PATH: /app/db/chroma
+      WHISPER_DEVICE: cpu
+      WHISPER_COMPUTE_TYPE: int8
     ports:
       - "8001:8001"
+    volumes:
+      - datn_ai_cache:/home/app/.cache
+      - datn_ai_data:/app/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/', timeout=5)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     restart: unless-stopped
+    init: true
+    logging: *default-logging
     networks:
       - datn-network
 
@@ -108,6 +149,8 @@ volumes:
   datn_db_data:
   datn_pgadmin_data:
   datn_uploads:
+  datn_ai_cache:
+  datn_ai_data:
 
 networks:
   datn-network:

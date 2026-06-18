@@ -12,5 +12,8 @@ class SubscriptionPlan(Base):
     name = Column(Enum(SubscriptionPlanName), unique=True, nullable=False)
     price = Column(Integer, nullable=False)
     description = Column(String(255), nullable=True)
+    practice_sessions_per_day = Column(Integer, nullable=True)
+    cv_upload_limit = Column(Integer, nullable=True)
+    jd_upload_limit = Column(Integer, nullable=True)
 
     users = relationship("User", back_populates="plan")

@@ -5,6 +5,11 @@ import { useUser } from "../../UserContext";
 import { authedFetch } from "../../../api/authClient";
 import { dispatchNotice } from "../../../utils/notice";
 
+function formatLimit(value, unit) {
+  if (value === null || value === undefined) return `Không giới hạn ${unit}`;
+  return `${value} ${unit}`;
+}
+
 export function ServicePlansScreen() {
   const { user, fetchUser } = useUser();
   const [plans, setPlans] = useState([]);
@@ -92,7 +97,11 @@ export function ServicePlansScreen() {
       name: displayName,
       backendName: p.name,
       price: displayPrice,
-      features,
+      features: [
+        formatLimit(p.practice_sessions_per_day, "phiên luyện tập/ngày"),
+        formatLimit(p.cv_upload_limit, "CV"),
+        formatLimit(p.jd_upload_limit, "JD"),
+      ],
       icon,
       accent,
       current: isCurrent,

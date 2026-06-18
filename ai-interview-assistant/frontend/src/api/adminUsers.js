@@ -16,3 +16,14 @@ export async function updateAdminUserRole({ userId, role }) {
     body: JSON.stringify({ role }),
   });
 }
+
+export async function fetchAdminPlans() {
+  return authedFetch("/v1_0/admin/plans");
+}
+
+export async function updateAdminPlan({ planId, payload }) {
+  return authedFetch(`/v1_0/admin/plans/${planId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}

@@ -219,6 +219,15 @@ export default function DashboardPage({ forcedScreen }) {
                 `/phong-van-moi?jobPostingId=${selectedJd?.jobPostingId || selectedJd?.id || ""}&cvDocumentId=${cvId || ""}`,
               )
             }
+            onStartPractice={() => {
+              const params = new URLSearchParams();
+              const jobPostingId = selectedJd?.jobPostingId || selectedJd?.id || "";
+              if (jobPostingId) params.set("jobPostingId", String(jobPostingId));
+              if (selectedJd?.title) params.set("targetRole", selectedJd.title);
+              if (selectedJd?.level) params.set("level", selectedJd.level);
+              const queryString = params.toString();
+              navigate(queryString ? `/luyen-tap/tao-moi?${queryString}` : "/luyen-tap/tao-moi");
+            }}
             publicJobsError={publicJobsError}
             managementOnly={isAdmin}
           />

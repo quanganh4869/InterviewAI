@@ -8,10 +8,11 @@ from core.enums.document_enum import DocumentType
 from core.enums.user_enum import UserRole
 from core.exception_handler.custom_exception import ExceptionValueError
 from db.models.document import Document
+from db.models.subscription_plan import SubscriptionPlan
 from db.models.users import User
 from fastapi import UploadFile
 from services.file_storage_service import FileStorageService, get_storage_service
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 SOURCE_UPLOADED = "UPLOADED"
@@ -156,6 +157,7 @@ class DocumentService:
         summary: str | None = None,
     ) -> Document:
         normalized_type = self._resolve_upload_document_type(user, document_type)
+        await self._ensure_upload_quota(user=user, document_type=normalized_type)
         if normalized_type == DocumentType.JD and not title:
             title = (file.filename or "JD").rsplit(".", maxsplit=1)[0] or "JD"
 
@@ -188,6 +190,44 @@ class DocumentService:
         except Exception:
             await self._cleanup_orphan_file(storage_key=storage_key)
             raise
+
+    async def _ensure_upload_quota(
+        self,
+        user: User,
+        document_type: DocumentType,
+    ) -> None:
+        if user.role == UserRole.ADMIN:
+            return
+
+        plan = None
+        if user.plan_id:
+            plan_result = await self.db_session.execute(
+                select(SubscriptionPlan).where(SubscriptionPlan.id == user.plan_id)
+            )
+            plan = plan_result.scalar_one_or_none()
+
+        limit = 3
+        if plan:
+            limit = (
+                plan.cv_upload_limit
+                if document_type == DocumentType.CV
+                else plan.jd_upload_limit
+            )
+        if limit is None:
+            return
+
+        count_query = select(func.count(Document.id)).where(
+            Document.owner_user_id == user.id,
+            Document.document_type == document_type.value,
+            Document.deleted_at.is_(None),
+        )
+        count_val = (await self.db_session.execute(count_query)).scalar() or 0
+        if count_val >= limit:
+            label = "CV" if document_type == DocumentType.CV else "JD"
+            raise ExceptionValueError(
+                message=f"Gói hiện tại chỉ cho phép lưu tối đa {limit} tài liệu {label}. Vui lòng xóa tài liệu cũ hoặc nâng cấp gói.",
+                status_code=400,
+            )
 
     @staticmethod
     def _extract_upload_file_size(file: UploadFile) -> int:

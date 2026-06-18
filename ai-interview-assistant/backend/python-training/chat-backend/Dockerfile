@@ -1,48 +1,47 @@
-FROM python:3.12-slim as builder
+FROM python:3.12-slim AS builder
 
-WORKDIR /build
-
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    gcc \
-    libffi-dev \
-    libssl-dev \
-    libpq-dev \
-    python-dev-is-python3 \
-    git \
-    curl \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# pyproject.toml of dentist_shared
-COPY ./pyproject.toml .
-# pyproject.toml of chat-backend
-RUN mkdir chat-backend_dependency
-
-COPY ./chat-backend/pyproject.toml ./chat-backend_dependency/
-
-RUN pip install --upgrade pip build poetry poetry-plugin-export
-# Build file whl for gc_dentist_share module
-RUN python -m build
-# Export requirements.txt
-RUN poetry config virtualenvs.create false &&\
-    poetry --directory ./chat-backend_dependency/ export -f requirements.txt --without-hashes --output /build/requirements.txt
-# Install dependencies
-RUN pip install --upgrade pip\
-    &&pip install --no-cache -r requirements.txt\
-    &&pip install /build/dist/*.whl && rm -rf ./dist
-###############################
-FROM python:3.12-slim as runner
-
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_VERSION=2.1.3
 
 WORKDIR /app
-# Copy python lib from Builder
-COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
-COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application files
-COPY chat-backend/app .
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install "poetry==${POETRY_VERSION}" "poetry-plugin-export>=1.8,<2.0"
+
+COPY pyproject.toml poetry.lock ./
+RUN poetry export --only main --without-hashes -f requirements.txt -o requirements.txt
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --prefer-binary -r requirements.txt
+
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-vie \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
+
+COPY --from=builder /opt/venv /opt/venv
+COPY app/ /app/
+
+EXPOSE 8000
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -4,4 +4,10 @@ dist/
 .gitignore
 .vscode/
 .idea/
+.env
+.env.*
+!.env.example
 *.log
+README.md
+src/**/*.test.*
+src/**/*.spec.*

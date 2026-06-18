@@ -6,6 +6,7 @@ import jwt
 from configuration.logger.config import log
 from configuration.settings import configuration
 from core.common.jwt_token import decode_jwt_token
+from core.common.rsa_keys import load_pem_from_env
 from core.exception_handler.custom_exception import ExceptionValueError
 from core.messages import CustomMessageCode
 from cryptography.hazmat.primitives import serialization
@@ -23,6 +24,26 @@ class KeyManager:
             return json.load(f)
 
     def _load_all_keys(self):
+        private_key_pem = load_pem_from_env(
+            raw_value=configuration.JWT_RSA_PRIVATE_KEY,
+            base64_value=configuration.JWT_RSA_PRIVATE_KEY_B64,
+        )
+        public_key_pem = load_pem_from_env(
+            raw_value=configuration.JWT_RSA_PUBLIC_KEY,
+            base64_value=configuration.JWT_RSA_PUBLIC_KEY_B64,
+        )
+        if private_key_pem or public_key_pem:
+            if not private_key_pem or not public_key_pem:
+                raise RuntimeError(
+                    "Both JWT_RSA_PRIVATE_KEY and JWT_RSA_PUBLIC_KEY must be configured together."
+                )
+            kid = configuration.JWT_RSA_KEY_ID or self.manifest["current_kid"]
+            self.private_keys[kid] = serialization.load_pem_private_key(
+                private_key_pem, password=None
+            )
+            self.public_keys[kid] = serialization.load_pem_public_key(public_key_pem)
+            return
+
         for kid, key_info in self.manifest["keys"].items():
             if key_info["status"] == "active":
                 with open(key_info["private_path"], "rb") as f:
@@ -56,7 +77,7 @@ class KeyManager:
         )
 
     def get_current_signing_key(self):
-        current_kid = self.manifest["current_kid"]
+        current_kid = configuration.JWT_RSA_KEY_ID or self.manifest["current_kid"]
         if current_kid not in self.private_keys:
             log.error(f"Current KID {current_kid} not found in private keys.")
             raise ExceptionValueError(

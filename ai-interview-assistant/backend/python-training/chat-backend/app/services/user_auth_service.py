@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 from configuration.logger.config import log
 from configuration.settings import configuration
 from core.common.aes_gcm import AesGCMRotation
-from core.common.jwt_token import encode_jwt_token
 from core.constants import FIXED_ADMIN_EMAILS, TOKEN_PREFIX
 from core.enums.user_enum import UserRole
 from db.models import AuthIdentity, AuthProvider, OAuthToken, User
@@ -12,9 +11,11 @@ from google.oauth2 import id_token
 from schemas.responses.google_auth_schema import GoogleUserSchema
 from schemas.responses.user_auth_schema import OAuthTokenResponse
 from services.google_auth_service import GoogleAuthService
+from services.key_manager_service import KeyManager
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from werkzeug.security import gen_salt
 
 
 class UserAuthService:
@@ -59,14 +60,22 @@ class UserAuthService:
         user: User,
     ) -> OAuthTokenResponse:
         try:
-            jwt_token = encode_jwt_token(
-                key_id=configuration.RSA_KEY_MANIFEST.get("current_kid"),
-                jwt_secret_key=configuration.JWT_RSA_PRIVATE_KEY,
-                jwt_algorithm=configuration.JWT_ALGORITHM,
-                access_token_expire_minutes=configuration.ACCESS_TOKEN_EXPIRE_MINUTES,
-                scope=" ".join(configuration.GOOGLE_SCOPES),
-                user=user,
+            scope = " ".join(configuration.GOOGLE_SCOPES)
+            token_expires = timedelta(minutes=configuration.ACCESS_TOKEN_EXPIRE_MINUTES)
+            access_token = KeyManager().create_access_token(
+                payload_data={
+                    "iss": "Chat App",
+                    "sub": str(user.id),
+                    "scope": scope,
+                    "iat": int(datetime.now(timezone.utc).timestamp()),
+                },
+                expires_delta=token_expires,
             )
+            jwt_token = {
+                "access_token": access_token,
+                "refresh_token": gen_salt(48),
+                "expires_in": int(token_expires.total_seconds()),
+            }
 
             oauth_token = OAuthToken(
                 user_id=user.id,

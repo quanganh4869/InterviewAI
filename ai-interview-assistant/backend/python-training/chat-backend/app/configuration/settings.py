@@ -119,7 +119,11 @@ class Settings(BaseSettings):
 
     # JWT
     JWT_ALGORITHM: str = "RS256"
+    JWT_RSA_KEY_ID: str = "key_20250805"
     JWT_RSA_PRIVATE_KEY: str = ""
+    JWT_RSA_PRIVATE_KEY_B64: str = ""
+    JWT_RSA_PUBLIC_KEY: str = ""
+    JWT_RSA_PUBLIC_KEY_B64: str = ""
     RSA_KEY_MANIFEST: dict = {
         "current_kid": "key_20250805",
         "keys": {

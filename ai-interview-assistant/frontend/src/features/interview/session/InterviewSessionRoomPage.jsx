@@ -235,14 +235,41 @@ export default function InterviewSessionRoomPage() {
   const [realtimeText, setRealtimeText] = useState("");
   const [localTranscripts, setLocalTranscripts] = useState({});
   const recognitionRef = useRef(null);
+  const recognitionRestartTimerRef = useRef(null);
   const accumulatedTranscriptRef = useRef("");
   const currentSessionFinalRef = useRef("");
+  const currentRecordingQuestionIdRef = useRef(null);
   const isRecordingRef = useRef(false);
   const messagesEndRef = useRef(null);
   const [lastSpokenIndex, setLastSpokenIndex] = useState(-1);
   const [mediaError, setMediaError] = useState("");
   const [sttStatus, setSttStatus] = useState("");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+
+  const getLiveTranscriptSnapshot = useCallback(() => {
+    const liveText = (realtimeText || "").replace(/\s+/g, " ").trim();
+    if (liveText) return liveText;
+    return [
+      accumulatedTranscriptRef.current,
+      currentSessionFinalRef.current,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }, [realtimeText]);
+
+  const rememberLiveTranscript = useCallback((text, questionId = currentRecordingQuestionIdRef.current) => {
+    const cleanText = (text || "").replace(/\s+/g, " ").trim();
+    if (!cleanText || !questionId) return;
+    setLocalTranscripts((prev) => {
+      if (prev[questionId] === cleanText) return prev;
+      return {
+        ...prev,
+        [questionId]: cleanText,
+      };
+    });
+  }, []);
 
   const [selectedVoice, setSelectedVoice] = useState(() => {
     if (typeof window !== "undefined") {
@@ -616,21 +643,31 @@ export default function InterviewSessionRoomPage() {
     try {
       stopSpeaking();
       const activeStream = await ensureMedia();
+      if (isMicMuted) {
+        setIsMicMuted(false);
+      }
       // Apply current mute states on the fresh active stream tracks
       activeStream.getAudioTracks().forEach(track => {
-        track.enabled = !isMicMuted;
+        track.enabled = true;
       });
       activeStream.getVideoTracks().forEach(track => {
         track.enabled = !isCameraMuted;
       });
       recordedChunksRef.current = [];
 
-      const hasVideo = activeStream.getVideoTracks().length > 0;
-      const mimeType = getSupportedMimeType(hasVideo ? "video" : "audio");
-      const options = mimeType ? { mimeType } : undefined;
+      const audioTracks = activeStream.getAudioTracks();
+      if (!audioTracks.length) {
+        throw new Error("KhÃ´ng tÃ¬m tháº¥y audio track tá»« micro.");
+      }
+      const recordingStream = new MediaStream(audioTracks);
+      const mimeType = getSupportedMimeType("audio");
+      const options = {
+        ...(mimeType ? { mimeType } : {}),
+        audioBitsPerSecond: 64000,
+      };
 
-      console.log(`Starting single MediaRecorder. Has video: ${hasVideo}. MIME type: ${mimeType}`);
-      const recorder = new MediaRecorder(activeStream, options);
+      console.log(`Starting audio MediaRecorder for STT. MIME type: ${mimeType || "browser-default"}`);
+      const recorder = new MediaRecorder(recordingStream, options);
       recorder.ondataavailable = (event) => {
         if (event.data?.size) recordedChunksRef.current.push(event.data);
       };
@@ -643,9 +680,11 @@ export default function InterviewSessionRoomPage() {
 
       // Initialize Web Speech API for real-time transcription feedback
       isRecordingRef.current = true;
+      currentRecordingQuestionIdRef.current = currentQuestion?.id || null;
       accumulatedTranscriptRef.current = "";
       currentSessionFinalRef.current = "";
       setRealtimeText("");
+      setSttStatus("");
 
       if (typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition)) {
         setSttStatus("Đang khởi động...");
@@ -655,6 +694,7 @@ export default function InterviewSessionRoomPage() {
           const rec = new SpeechRecognition();
           rec.continuous = true;
           rec.interimResults = true;
+          rec.maxAlternatives = 1;
 
           rec.onstart = () => {
             console.log("[STT] SpeechRecognition active. Listening for voice input...");
@@ -663,18 +703,30 @@ export default function InterviewSessionRoomPage() {
 
           rec.onresult = (event) => {
             setSttStatus("Đang nhận diện...");
-            let sessionFinal = "";
+            let nextFinal = "";
             let sessionInterim = "";
-            for (let i = 0; i < event.results.length; ++i) {
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
               const result = event.results[i];
+              const transcript = result[0]?.transcript || "";
               if (result.isFinal) {
-                sessionFinal += result[0].transcript;
+                nextFinal += transcript;
               } else {
-                sessionInterim += result[0].transcript;
+                sessionInterim += transcript;
               }
             }
-            currentSessionFinalRef.current = sessionFinal;
-            setRealtimeText(accumulatedTranscriptRef.current + (accumulatedTranscriptRef.current && (sessionFinal || sessionInterim) ? " " : "") + sessionFinal + sessionInterim);
+            if (nextFinal.trim()) {
+              currentSessionFinalRef.current = [
+                currentSessionFinalRef.current,
+                nextFinal.trim(),
+              ].filter(Boolean).join(" ");
+            }
+            const liveText = [
+              accumulatedTranscriptRef.current,
+              currentSessionFinalRef.current,
+              sessionInterim,
+            ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+            setRealtimeText(liveText);
+            rememberLiveTranscript(liveText);
           };
 
           rec.onerror = (err) => {
@@ -698,10 +750,15 @@ export default function InterviewSessionRoomPage() {
               accumulatedTranscriptRef.current += (accumulatedTranscriptRef.current ? " " : "") + currentSessionFinalRef.current;
             }
             currentSessionFinalRef.current = "";
+            setRealtimeText(accumulatedTranscriptRef.current);
+            rememberLiveTranscript(accumulatedTranscriptRef.current);
 
             if (isRecordingRef.current) {
               setSttStatus("Đang khởi động lại...");
-              setTimeout(() => {
+              if (recognitionRestartTimerRef.current) {
+                clearTimeout(recognitionRestartTimerRef.current);
+              }
+              recognitionRestartTimerRef.current = setTimeout(() => {
                 if (isRecordingRef.current) {
                   try {
                     recognitionRef.current.start();
@@ -709,7 +766,7 @@ export default function InterviewSessionRoomPage() {
                     console.warn("[STT] Failed to restart SpeechRecognition:", e);
                   }
                 }
-              }, 300);
+              }, 250);
             } else {
               setSttStatus("Đã dừng.");
             }
@@ -718,9 +775,9 @@ export default function InterviewSessionRoomPage() {
           recognitionRef.current = rec;
         }
 
-        // Apply dynamic language setting before starting
-        const isEng = isEnglishText(currentQuestion?.question_text);
-        recognitionRef.current.lang = isEng ? "en-US" : "vi-VN";
+        const configuredLanguage = String(session?.practice_config?.language || "").toLowerCase();
+        const isEnglishSession = configuredLanguage.startsWith("en");
+        recognitionRef.current.lang = isEnglishSession ? "en-US" : "vi-VN";
         console.log(`[STT] SpeechRecognition starting. Language: ${recognitionRef.current.lang} | Question: "${currentQuestion?.question_text || ""}"`);
 
         const tryStart = (retries = 3) => {
@@ -766,6 +823,20 @@ export default function InterviewSessionRoomPage() {
 
   const stopSpeechRecognition = () => {
     isRecordingRef.current = false;
+    if (recognitionRestartTimerRef.current) {
+      clearTimeout(recognitionRestartTimerRef.current);
+      recognitionRestartTimerRef.current = null;
+    }
+    const finalText = [
+      accumulatedTranscriptRef.current,
+      currentSessionFinalRef.current,
+    ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    if (finalText) {
+      accumulatedTranscriptRef.current = finalText;
+      currentSessionFinalRef.current = "";
+      setRealtimeText(finalText);
+      rememberLiveTranscript(finalText);
+    }
     setSttStatus("Đã dừng.");
     if (recognitionRef.current) {
       try {
@@ -778,30 +849,28 @@ export default function InterviewSessionRoomPage() {
     if (!currentQuestion) return;
     setIsUploadingAnswer(true);
     setUploadProgress(0);
-    
-    // Save the final real-time text to localTranscripts map before clearing it
-    if (realtimeText) {
-      setLocalTranscripts(prev => ({
-        ...prev,
-        [currentQuestion.id]: realtimeText
-      }));
-    }
-    
     stopSpeechRecognition();
+
+    // Save the final real-time text to localTranscripts map before clearing it
+    const finalLiveText = getLiveTranscriptSnapshot();
+    rememberLiveTranscript(finalLiveText, currentQuestion.id);
+
     try {
       await stopRecorder(recorderRef.current);
       setIsRecording(false);
 
-      const hasVideo = stream?.getVideoTracks().length > 0;
-      const fallbackMime = hasVideo ? "video/webm" : "audio/webm";
+      const fallbackMime = "audio/webm";
       const recordedBlob = buildBlob(recordedChunksRef.current, fallbackMime);
+      if (!recordedBlob || recordedBlob.size === 0) {
+        throw new Error("KhÃ´ng thu Ä‘Æ°á»£c dá»¯ liá»‡u Ã¢m thanh tá»« micro.");
+      }
       const durationSeconds = recordingStartedAt ? (Date.now() - recordingStartedAt) / 1000 : null;
 
       await uploadInterviewAnswer({
         sessionId: session.id,
         questionId: currentQuestion.id,
         audioBlob: recordedBlob,
-        videoBlob: hasVideo ? recordedBlob : null,
+        videoBlob: null,
         durationSeconds,
         onProgress: (progress) => {
           setUploadProgress(progress);
@@ -845,7 +914,8 @@ export default function InterviewSessionRoomPage() {
 
         const ans = (session?.answers || []).find((a) => a.question_id === q.id);
         if (ans) {
-          const localTxt = localTranscripts[q.id] || "";
+          const liveTxt = index === currentIndex ? getLiveTranscriptSnapshot() : "";
+          const localTxt = localTranscripts[q.id] || liveTxt || "";
           let displayText = ans.transcript || localTxt;
           if (!displayText) {
             if (ans.transcription_status === "processing") {
@@ -861,12 +931,13 @@ export default function InterviewSessionRoomPage() {
             sender: "candidate",
             text: displayText,
           });
-        } else if (index === currentIndex && isRecording) {
+        } else if (index === currentIndex && (isRecording || isUploadingAnswer || realtimeText || localTranscripts[q.id])) {
+          const liveText = getLiveTranscriptSnapshot() || localTranscripts[q.id] || "";
           msgs.push({
             id: "current-recording",
             sender: "candidate",
-            text: realtimeText 
-              ? realtimeText 
+            text: liveText 
+              ? liveText 
               : sttStatus 
               ? `(${sttStatus})` 
               : "(Đang ghi nhận giọng nói của bạn...)",
@@ -876,7 +947,7 @@ export default function InterviewSessionRoomPage() {
       }
     });
     return msgs;
-  }, [questions, currentIndex, session?.answers, isRecording, realtimeText, sttStatus, localTranscripts]);
+  }, [questions, currentIndex, session?.answers, isRecording, isUploadingAnswer, realtimeText, sttStatus, localTranscripts, getLiveTranscriptSnapshot]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

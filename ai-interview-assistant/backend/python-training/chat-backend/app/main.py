@@ -5,6 +5,7 @@ from api.routes import router
 from configuration.logger.config import log
 from configuration.middleware.jwt_auth_middleware import JWTAuthMiddleware
 from configuration.settings import configuration
+from core.common.rsa_keys import load_pem_from_env
 from db.db_connection import Database
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,8 +41,7 @@ def create_app(skip_auth: bool = False) -> FastAPI:
         log.info("Application startup complete.")
         yield
 
-    configuration.JWT_RSA_PRIVATE_KEY = load_rsa_private_key()
-    if not configuration.JWT_RSA_PRIVATE_KEY:
+    if not load_rsa_private_key():
         log.error("❌ Error load RSA private key")
         raise Exception("Error load RSA private key")
 
@@ -80,8 +80,15 @@ def register_middlewares(app: FastAPI):
 
 
 def load_rsa_private_key() -> bytes:
+    env_key = load_pem_from_env(
+        raw_value=configuration.JWT_RSA_PRIVATE_KEY,
+        base64_value=configuration.JWT_RSA_PRIVATE_KEY_B64,
+    )
+    if env_key:
+        return env_key
+
     base_dir = Path(__file__).resolve().parent
-    current_kid = configuration.RSA_KEY_MANIFEST.get("current_kid")
+    current_kid = configuration.JWT_RSA_KEY_ID or configuration.RSA_KEY_MANIFEST.get("current_kid")
     rsa_path = base_dir / configuration.RSA_KEY_MANIFEST.get("keys").get(
         current_kid
     ).get("private_path")

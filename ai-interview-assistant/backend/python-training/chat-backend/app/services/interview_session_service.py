@@ -143,8 +143,29 @@ class InterviewSessionService:
         from core.enums.subscription_enum import SubscriptionPlanName
 
         start_of_day = datetime.combine(datetime.utcnow().date(), time.min)
+        if not cv_document_id:
+            raise ExceptionValueError(
+                message="Vui lòng chọn CV phù hợp trước khi bắt đầu luyện tập.",
+                status_code=422,
+            )
+
+        cv_document = await self.document_service._get_accessible_document(
+            user=user,
+            document_id=cv_document_id,
+        )
+        if cv_document.document_type != DocumentType.CV:
+            raise ExceptionValueError(
+                message="Phiên luyện tập chỉ có thể dùng tài liệu CV.",
+                status_code=422,
+            )
+        if user.role == UserRole.USER and cv_document.owner_user_id != user.id:
+            raise ExceptionValueError(
+                message="Bạn chỉ có thể luyện tập với CV của chính mình.",
+                status_code=403,
+            )
         
         plan_name = SubscriptionPlanName.FREE
+        user_plan = None
         if user.plan_id:
             plan_result = await self.db_session.execute(
                 select(SubscriptionPlan).where(SubscriptionPlan.id == user.plan_id)
@@ -163,6 +184,16 @@ class InterviewSessionService:
             )
         )
         count_val = (await self.db_session.execute(query_count)).scalar() or 0
+        additional_slots = getattr(user, "additional_practice_slots", 0) or 0
+        base_limit = user_plan.practice_sessions_per_day if user_plan else 2
+        limit = base_limit + additional_slots if base_limit is not None else None
+        if limit is not None and count_val >= limit:
+            plan_display = getattr(getattr(user_plan, "name", None), "value", None) or "free"
+            raise ExceptionValueError(
+                message=f"Gói {str(plan_display).upper()} chỉ cho phép tối đa {limit} phiên luyện tập mỗi ngày. Vui lòng nâng cấp gói hoặc liên hệ quản trị viên.",
+                status_code=400,
+            )
+        plan_name = SubscriptionPlanName.ULTRA
 
         plan_str = str(plan_name).upper()
         additional_slots = getattr(user, "additional_practice_slots", 0) or 0
@@ -182,12 +213,15 @@ class InterviewSessionService:
                     status_code=400
                 )
 
-        config = self._normalize_practice_config(practice_config or {})
+        config = self._normalize_practice_config(
+            practice_config or {},
+            has_job_posting=bool(job_posting_id),
+        )
         session = InterviewSession(
             candidate_user_id=user.id,
             session_type=SESSION_TYPE_PRACTICE,
             job_posting_id=job_posting_id,
-            cv_document_id=cv_document_id,
+            cv_document_id=cv_document.id,
             analysis_id=None,
             status=STATUS_CREATED,
             practice_config_json=config,
@@ -254,7 +288,13 @@ class InterviewSessionService:
             role = str(config.get("target_role") or "Target role")
             
             job_title = role
-            jd_text = f"Practice focus: {focus}\nLevel: {config.get('level') or 'General'}\nLanguage: {config.get('language') or 'Vietnamese'}"
+            context_lines = [
+                f"Practice focus: {focus}",
+                f"Language: {config.get('language') or 'Vietnamese'}",
+            ]
+            if not session.job_posting_id:
+                context_lines.insert(1, f"Level: {config.get('level') or 'General'}")
+            jd_text = "\n".join(context_lines)
             cv_text = ""
             
             if session.job_posting_id:
@@ -285,13 +325,15 @@ class InterviewSessionService:
             }
 
     @staticmethod
-    def _normalize_practice_config(config: dict[str, Any]) -> dict[str, Any]:
-        return {
+    def _normalize_practice_config(config: dict[str, Any], has_job_posting: bool = False) -> dict[str, Any]:
+        normalized = {
             "target_role": str(config.get("target_role") or "Target role").strip(),
             "focus": str(config.get("focus") or "General interview").strip(),
-            "level": str(config.get("level") or "General").strip(),
             "language": str(config.get("language") or "vi").strip(),
         }
+        if not has_job_posting:
+            normalized["level"] = str(config.get("level") or "General").strip()
+        return normalized
 
     async def generate_questions(self, user: User, session_id: int) -> dict[str, Any]:
         session = await self._get_accessible_session(user=user, session_id=session_id)
@@ -691,6 +733,7 @@ class InterviewSessionService:
                 posting.company or "",
                 posting.location or "",
                 posting.salary or "",
+                posting.level or "",
                 posting.experience or "",
                 posting.description or "",
                 posting.requirements or "",

@@ -89,12 +89,19 @@ export function InterviewHistoryScreen({ realSessions = [] }) {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-2xl font-extrabold" style={{ color: "var(--text)" }}>
-          Lịch sử phỏng vấn
-        </h2>
-        <p className="text-sm" style={{ color: "var(--text-soft)" }}>
-          Dữ liệu được đọc từ backend, gồm cả luyện tập và phỏng vấn chính thức.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-extrabold" style={{ color: "var(--text)" }}>
+              Lịch sử phỏng vấn
+            </h2>
+            <p className="text-sm" style={{ color: "var(--text-soft)" }}>
+              Dữ liệu được đọc từ backend, gồm cả luyện tập và phỏng vấn chính thức.
+            </p>
+          </div>
+          <Button onClick={() => navigate("/luyen-tap/tao-moi")}>
+            <Sparkles size={16} /> Tạo phiên luyện tập
+          </Button>
+        </div>
       </header>
 
       <DataToolbar>

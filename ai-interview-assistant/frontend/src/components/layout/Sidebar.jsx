@@ -22,6 +22,7 @@ const MENU_BY_ROLE = {
     { path: "/admin/documents", label: "CV & JD", icon: FolderKanban },
     { path: "/admin/interviews", label: "Các cuộc phỏng vấn", icon: Video },
     { path: "/admin/matches", label: "Kết quả đối chiếu", icon: FileSearch },
+    { path: "/admin/plans", label: "Gói dịch vụ", icon: Sparkles },
   ],
   hr: [
     { path: "/dashboard?screen=cvJdAnalysis", label: "So sánh CV/JD", icon: FileSearch },
@@ -33,6 +34,7 @@ const MENU_BY_ROLE = {
   user: [
     { path: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
     { path: "/dashboard?screen=profileCv", label: "CV", icon: FolderKanban },
+    { path: "/luyen-tap/tao-moi", label: "Luyện tập", icon: Sparkles },
     { path: "/dashboard?screen=jobMatch", label: "Việc làm", icon: BriefcaseBusiness },
     { path: "/dashboard?screen=interviewHistory", label: "Kết quả", icon: History },
     { path: "/dashboard?screen=servicePlans", label: "Gói dịch vụ", icon: Sparkles },
@@ -57,6 +59,7 @@ const Sidebar = () => {
     const currentParams = new URLSearchParams(location.search);
     const [itemPath, itemQuery = ""] = String(path).split("?");
 
+    if (itemPath === "/luyen-tap/tao-moi" && currentPath.startsWith("/luyen-tap")) return true;
     if (itemPath !== currentPath) return false;
     if (!itemQuery && itemPath.startsWith("/admin")) return true;
 
