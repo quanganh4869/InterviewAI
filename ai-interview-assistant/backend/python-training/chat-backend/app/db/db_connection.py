@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import ssl
 from typing import AsyncGenerator, Optional
 
 from configuration.logger.config import log
@@ -36,10 +37,16 @@ class Database:
         return {"sslmode": normalized}
 
     @staticmethod
-    def _async_connect_args(ssl_mode: str | None) -> dict[str, bool]:
-        if not Database._is_ssl_enabled(ssl_mode):
+    def _async_connect_args(ssl_mode: str | None) -> dict[str, ssl.SSLContext]:
+        normalized = str(ssl_mode or "").strip().lower()
+        if not Database._is_ssl_enabled(normalized):
             return {}
-        return {"ssl": True}
+        if normalized in {"1", "true", "require"}:
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            return {"ssl": ssl_context}
+        return {"ssl": ssl.create_default_context()}
 
     @classmethod
     def get_url(cls):
