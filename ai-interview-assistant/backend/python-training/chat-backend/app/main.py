@@ -52,6 +52,10 @@ def create_app(skip_auth: bool = False) -> FastAPI:
     app.include_router(router)
     register_middlewares(app)
 
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy"}
+
     return app
 
 
