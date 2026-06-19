@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Unified AI Matcher"
     API_V1_STR: str = "/api/v1"
     DEBUG: bool = True
-    AI_LITE_MODE: bool = False
+    AI_LITE_MODE: bool = True
 
     # Models
     EMBEDDING_MODEL_NAME: str = "paraphrase-multilingual-MiniLM-L12-v2"
