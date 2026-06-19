@@ -1,5 +1,5 @@
 from typing import Annotated
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from configuration.logger.config import log
 from configuration.settings import configuration
@@ -69,6 +69,11 @@ async def google_login_callback(
             'refresh_token': login_result.refresh_token,
             'token_type': 'bearer',
         })}"
+        redirect_target = urlparse(redirect_url)
+        log.info(
+            "Redirecting Google login to frontend: "
+            f"{redirect_target.scheme}://{redirect_target.netloc}{redirect_target.path}"
+        )
         return RedirectResponse(url=redirect_url)
 
     except ExceptionValueError as e:
