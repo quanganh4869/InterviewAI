@@ -23,6 +23,9 @@ yarn-error.log*
 **/.env
 **/.env.*
 !**/.env.example
+**/rsa_private_key.pem
+**/rsa_public_key.pem
+**/railway-rsa-env.txt
 
 # Python
 **/__pycache__/

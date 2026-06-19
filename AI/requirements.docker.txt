@@ -1,17 +1,9 @@
 fastapi
 uvicorn
 faster-whisper
-pymupdf
-pytesseract
-Pillow
 python-multipart
 python-dotenv
 pydantic-settings
-torch
 setuptools
 edge-tts
-chromadb
 httpx
-numpy
-scikit-learn
-sentence-transformers

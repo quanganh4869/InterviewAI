@@ -1,5 +1,4 @@
 import logging
-import torch
 import os
 from faster_whisper import WhisperModel
 from app.core.config import settings
@@ -21,8 +20,8 @@ class WhisperService:
         if self._model is None:
             try:
                 log.info(f"Loading Faster-Whisper Model: {settings.WHISPER_MODEL_SIZE}...")
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-                compute_type = "float16" if device == "cuda" else "int8"
+                device = settings.WHISPER_DEVICE
+                compute_type = settings.WHISPER_COMPUTE_TYPE
                 
                 self._model = WhisperModel(
                     settings.WHISPER_MODEL_SIZE, 

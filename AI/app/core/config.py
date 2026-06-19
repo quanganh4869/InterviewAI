@@ -13,10 +13,13 @@ class Settings(BaseSettings):
     APP_NAME: str = "Unified AI Matcher"
     API_V1_STR: str = "/api/v1"
     DEBUG: bool = True
+    AI_LITE_MODE: bool = False
 
     # Models
     EMBEDDING_MODEL_NAME: str = "paraphrase-multilingual-MiniLM-L12-v2"
     WHISPER_MODEL_SIZE: str = "small"
+    WHISPER_DEVICE: str = "cpu"
+    WHISPER_COMPUTE_TYPE: str = "int8"
     GEMINI_API_KEY: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
 
