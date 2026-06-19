@@ -37,16 +37,19 @@ class Database:
         return {"sslmode": normalized}
 
     @staticmethod
-    def _async_connect_args(ssl_mode: str | None) -> dict[str, ssl.SSLContext]:
+    def _async_connect_args(ssl_mode: str | None) -> dict[str, object]:
+        connect_args: dict[str, object] = {"statement_cache_size": 0}
         normalized = str(ssl_mode or "").strip().lower()
         if not Database._is_ssl_enabled(normalized):
-            return {}
+            return connect_args
         if normalized in {"1", "true", "require"}:
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
-            return {"ssl": ssl_context}
-        return {"ssl": ssl.create_default_context()}
+            connect_args["ssl"] = ssl_context
+            return connect_args
+        connect_args["ssl"] = ssl.create_default_context()
+        return connect_args
 
     @classmethod
     def get_url(cls):
