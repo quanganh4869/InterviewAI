@@ -38,7 +38,10 @@ class Database:
 
     @staticmethod
     def _async_connect_args(ssl_mode: str | None) -> dict[str, object]:
-        connect_args: dict[str, object] = {"statement_cache_size": 0}
+        connect_args: dict[str, object] = {
+            "statement_cache_size": 0,
+            "prepared_statement_cache_size": 0,
+        }
         normalized = str(ssl_mode or "").strip().lower()
         if not Database._is_ssl_enabled(normalized):
             return connect_args
@@ -85,6 +88,7 @@ class Database:
                 echo=settings.DB_ECHO,
                 future=True,
                 pool_pre_ping=True,
+                hide_parameters=True,
                 connect_args=cls._async_connect_args(settings.POSTGRES_SSL_MODE),
             )
         return cls._engine
@@ -143,6 +147,7 @@ class DatabaseReadOnly:
                 echo=settings.DB_ECHO,
                 future=True,
                 pool_pre_ping=True,
+                hide_parameters=True,
                 connect_args=Database._async_connect_args(
                     settings.READ_ONLY_POSTGRES_SSL_MODE
                 ),
