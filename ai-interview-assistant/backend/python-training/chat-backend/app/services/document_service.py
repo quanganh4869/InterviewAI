@@ -132,11 +132,12 @@ class DocumentService:
         )
 
         try:
-            async with self.db_session.begin():
-                self.db_session.add(document)
+            self.db_session.add(document)
+            await self.db_session.commit()
             await self.db_session.refresh(document)
             return document
         except Exception as exc:
+            await self.db_session.rollback()
             log.error(
                 "document_orphan_candidate user_id=%s document_type=%s object_key=%s error=%s",
                 user.id,
