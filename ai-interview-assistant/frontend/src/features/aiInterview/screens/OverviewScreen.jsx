@@ -641,14 +641,14 @@ function CandidateDashboard({
       </div>
 
       <div className="dashboard-two-column-grid dashboard-candidate-grid">
-        <ChartCard title="Việc làm gợi ý" subtitle="JD thật đang sẵn trong hệ thống để bạn xem và đối chiếu CV.">
+        <ChartCard title="Việc làm gợi ý" subtitle="Các công việc tuyển dụng đang mở phù hợp với định hướng của bạn.">
           {recommendedJobs.length ? (
             <div className="dashboard-job-list">
               {recommendedJobs.map((job) => (
                 <article key={job.id} className="dashboard-job-card">
                   <div>
                     <StatusBadge status="active">Mức độ phù hợp cao</StatusBadge>
-                    <h4>{job.title || job.fileName || "JD"}</h4>
+                    <h4>{job.title || job.fileName || "Vị trí tuyển dụng"}</h4>
                     <p>{job.company || "Chưa có công ty"}</p>
                   </div>
                   <div className="dashboard-job-meta">
@@ -665,7 +665,7 @@ function CandidateDashboard({
             <EmptyState
               icon={BriefcaseBusiness}
               title="Chưa có việc làm phù hợp để gợi ý"
-              description="Danh sách này dùng JD thật từ hệ thống. Mở job board khi có JD để chấm điểm CV/JD."
+              description="Hệ thống sẽ tự động gợi ý các vị trí phù hợp khi nhà tuyển dụng đăng tin tuyển dụng mới."
               className="py-7"
             />
           )}

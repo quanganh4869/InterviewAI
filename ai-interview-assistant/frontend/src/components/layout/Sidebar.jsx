@@ -25,8 +25,8 @@ const MENU_BY_ROLE = {
     { path: "/admin/plans", label: "Gói dịch vụ", icon: Sparkles },
   ],
   hr: [
-    { path: "/dashboard?screen=cvJdAnalysis", label: "So sánh CV/JD", icon: FileSearch },
     { path: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
+    { path: "/dashboard?screen=cvJdAnalysis", label: "So sánh CV/JD", icon: FileSearch },
     { path: "/dashboard?screen=profileCv", label: "JD", icon: FileText },
     { path: "/dashboard?screen=insights", label: "Ứng viên", icon: UsersRound },
     { path: "/dashboard?screen=interviewHistory", label: "Lịch sử", icon: History },
@@ -34,7 +34,6 @@ const MENU_BY_ROLE = {
   user: [
     { path: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
     { path: "/dashboard?screen=profileCv", label: "CV", icon: FolderKanban },
-    { path: "/luyen-tap/tao-moi", label: "Luyện tập", icon: Sparkles },
     { path: "/dashboard?screen=jobMatch", label: "Việc làm", icon: BriefcaseBusiness },
     { path: "/dashboard?screen=interviewHistory", label: "Kết quả", icon: History },
     { path: "/dashboard?screen=servicePlans", label: "Gói dịch vụ", icon: Sparkles },

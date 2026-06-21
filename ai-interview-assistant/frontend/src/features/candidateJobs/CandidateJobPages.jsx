@@ -26,7 +26,7 @@ function jobText(job) {
 
 function excerpt(job) {
   const text = jobText(job).replace(/\s+/g, " ").trim();
-  return text.length > 220 ? `${text.slice(0, 220)}...` : text || "JD chưa có mô tả ngắn.";
+  return text.length > 220 ? `${text.slice(0, 220)}...` : text || "Công việc chưa có mô tả ngắn.";
 }
 
 function buildPracticeStartPath({ jobPostingId, cvDocumentId, targetRole, level } = {}) {
@@ -99,9 +99,9 @@ export function CandidateJobsPage() {
         <header className="role-hero">
           <div className="role-hero-content">
             <div>
-              <StatusBadge status="active">JD đã đăng</StatusBadge>
+              <StatusBadge status="active">Đang tuyển dụng</StatusBadge>
               <h2>Việc làm đang tuyển</h2>
-              <p>Chọn một JD để xem chi tiết và đối chiếu CV.</p>
+              <p>Chọn một công việc để xem chi tiết và đối chiếu CV.</p>
             </div>
           </div>
         </header>
@@ -109,7 +109,7 @@ export function CandidateJobsPage() {
         {isLoading ? <JobSkeleton /> : null}
         {!isLoading && error ? <EmptyState title="Không thể tải việc làm" description={error} /> : null}
         {!isLoading && !error && !jobs.length ? (
-          <EmptyState title="Chưa có JD nào được đăng" description="HR có thể đăng JD từ thư viện tài liệu." />
+          <EmptyState title="Chưa có việc làm nào được đăng" description="Danh sách việc làm sẽ xuất hiện ở đây khi nhà tuyển dụng đăng tin." />
         ) : null}
 
         {!isLoading && !error && jobs.length ? (
@@ -189,7 +189,7 @@ export function CandidateJobDetailPage() {
           setError("");
         }
       } catch (err) {
-        if (!cancelled) setError(err?.message || "Không thể tải chi tiết JD.");
+        if (!cancelled) setError(err?.message || "Không thể tải chi tiết công việc.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -241,7 +241,7 @@ export function CandidateJobDetailPage() {
           <ArrowLeft size={16} /> Danh sách việc làm
         </Button>
         {isLoading ? <JobSkeleton /> : null}
-        {!isLoading && error ? <EmptyState title="Không thể mở JD" description={error} /> : null}
+        {!isLoading && error ? <EmptyState title="Không thể mở chi tiết công việc" description={error} /> : null}
         {!isLoading && hasCompletedOfficial && (
           <div className="rounded-[12px] border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-500 font-semibold">
             Bạn đã thực hiện phỏng vấn chính thức cho vị trí này với CV đã đối chiếu. Kết quả đã được gửi cho bộ phận HR để xem xét.

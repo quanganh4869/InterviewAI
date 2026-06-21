@@ -208,13 +208,13 @@ export function JobDetailScreen({
                   </div>
                   <div className="min-w-0">
                     <div className="job-preview-eyebrow">
-                      <Badge tone="primary">{job.postedAt || "JD đã đăng"}</Badge>
+                      <Badge tone="primary">{job.postedAt || "Đang tuyển"}</Badge>
                       {job.level ? <Badge>{job.level}</Badge> : null}
                     </div>
-                    <h3>{job.title || job.fileName || `JD #${job.id}`}</h3>
+                    <h3>{job.title || job.fileName || `Vị trí #${job.id}`}</h3>
                     <p className="job-preview-company">{job.company || "N/A"}</p>
                     <p className="job-preview-excerpt">
-                      {getJobListInfo(job) || "Bấm vào JD để xem đầy đủ thông tin tuyển dụng."}
+                      {getJobListInfo(job) || "Bấm vào vị trí để xem đầy đủ thông tin tuyển dụng."}
                     </p>
                     <div className="job-preview-meta">
                       <span>

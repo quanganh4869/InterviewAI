@@ -86,11 +86,11 @@ export default function DashboardPage({ forcedScreen }) {
       setPublicJobsError("");
     } catch (error) {
       setPublicJobRows([]);
-      setPublicJobsError(error?.message || "Không thể tải JD đã đăng.");
+      setPublicJobsError(error?.message || "Không thể tải danh sách việc làm.");
       dispatchNotice({
         tone: "warning",
-        title: "JD công khai",
-        message: error?.message || "Không thể tải danh sách JD đã đăng.",
+        title: "Danh sách việc làm",
+        message: error?.message || "Không thể tải danh sách việc làm tuyển dụng.",
       });
     }
   };
