@@ -18,6 +18,7 @@ export function useDocuments(user) {
   const [selectedCvDetail, setSelectedCvDetail] = useState(null);
   const [selectedJdDetail, setSelectedJdDetail] = useState(null);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [activeOperation, setActiveOperation] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deletingDocument, setDeletingDocument] = useState(false);
   const [editDocument, setEditDocument] = useState(null);
@@ -61,6 +62,7 @@ export function useDocuments(user) {
       return false;
     }
 
+    setActiveOperation("Dang tai CV len...");
     try {
       const result = await uploadCvDocument({ file });
       const newRow = mapCvRow(result);
@@ -75,6 +77,8 @@ export function useDocuments(user) {
         message: getUploadErrorMessage(error, "cv", user?.role),
       });
       return false;
+    } finally {
+      setActiveOperation("");
     }
   };
 
@@ -89,6 +93,7 @@ export function useDocuments(user) {
     const title = input instanceof File ? fallbackTitle : input?.title || fallbackTitle;
     const company = input instanceof File ? "" : input?.company || "";
     const summary = input instanceof File ? "" : input?.summary || "";
+    setActiveOperation("Dang tai JD len...");
     try {
       const result = await uploadJdDocument({
         file,
@@ -108,6 +113,8 @@ export function useDocuments(user) {
         message: getUploadErrorMessage(error, "jd", user?.role),
       });
       return false;
+    } finally {
+      setActiveOperation("");
     }
   };
 
@@ -233,6 +240,7 @@ export function useDocuments(user) {
           summary: editDocument.summary,
         };
 
+    setActiveOperation("Dang luu thay doi tai lieu...");
     try {
       setSavingDocument(true);
       const updated = await updateDocument({ documentId: editDocument.documentId, payload });
@@ -253,6 +261,7 @@ export function useDocuments(user) {
       });
     } finally {
       setSavingDocument(false);
+      setActiveOperation("");
     }
   };
 
@@ -273,6 +282,7 @@ export function useDocuments(user) {
     if (!deleteConfirm?.documentId) return;
     const { documentId, documentType } = deleteConfirm;
 
+    setActiveOperation(`Dang xoa ${documentType.toUpperCase()}...`);
     try {
       setDeletingDocument(true);
       await deleteDocument({ documentId });
@@ -299,6 +309,7 @@ export function useDocuments(user) {
       });
     } finally {
       setDeletingDocument(false);
+      setActiveOperation("");
     }
   };
 
@@ -306,6 +317,7 @@ export function useDocuments(user) {
     cvRows,
     jdRows,
     isLoadingDocuments,
+    activeOperation,
     selectedCvDetail,
     selectedJdDetail,
     deleteConfirm,

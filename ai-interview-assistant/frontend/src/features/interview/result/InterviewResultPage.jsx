@@ -48,6 +48,7 @@ export default function InterviewResultPage() {
   const [mediaUrls, setMediaUrls] = useState({});
   const [activeIdx, setActiveIdx] = useState(0);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     let cancelled = false;
@@ -210,24 +211,31 @@ export default function InterviewResultPage() {
                 {/* Circular score display */}
                 <div className="relative flex items-center justify-center h-28 w-28 shrink-0">
                   <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="56" cy="56" r="48" stroke="#1e293b" strokeWidth="8" fill="transparent" />
+                    <defs>
+                      <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#4f46e5" />
+                        <stop offset="100%" stopColor="#0891b2" />
+                      </linearGradient>
+                    </defs>
+                    <circle cx="56" cy="56" r="48" stroke="#1e293b" strokeWidth="8" fill="transparent" className="opacity-30" />
                     <circle
                       cx="56"
                       cy="56"
                       r="48"
-                      stroke="#2563eb"
+                      stroke="url(#scoreGradient)"
                       strokeWidth="8"
                       fill="transparent"
                       strokeDasharray={301.6}
                       strokeDashoffset={301.6 - (301.6 * (hasUnanswered ? 0 : overallScore)) / 100}
-                      className="transition-all duration-500"
+                      strokeLinecap="round"
+                      className="transition-all duration-700 ease-out"
                     />
                   </svg>
                   <div className="absolute flex flex-col items-center justify-center">
                     <span className="text-3xl font-black text-white">
                       {hasUnanswered ? "--" : overallScore}
                     </span>
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Tổng điểm</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 font-display">Tổng điểm</span>
                   </div>
                 </div>
 
@@ -365,231 +373,241 @@ export default function InterviewResultPage() {
               })}
             </nav>
 
-            {/* Split layout columns */}
+            {/* Tab navigation */}
+            <div className="flex border-b border-[var(--color-border)] mt-4 mb-5 overflow-x-auto whitespace-nowrap">
+              {[
+                { id: "overview", label: "Tổng quan & Điểm số" },
+                { id: "suggestion", label: "Gợi ý trả lời & Tips" },
+                { id: "transcript", label: "Bản ghi âm & Văn bản" },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-5 py-3 text-sm font-bold border-b-2 transition-all duration-150 cursor-pointer ${
+                      isActive
+                        ? "border-[var(--color-primary)] text-[var(--color-primary)]"
+                        : "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tab Content Conditional Rendering */}
             {activeQuestion ? (
-              <div className="grid gap-5 lg:grid-cols-12">
-                
-                {/* Left Column: Question, Video, suggestions */}
-                <div className="lg:col-span-7 space-y-5">
-                  
-                  {/* Question text card */}
-                  <SectionCard title={`Question ${activeIdx + 1}`} subtitle={activeQuestion.category || "General Question"}>
-                    <p className="text-lg font-bold leading-8 text-[var(--color-text)]">
-                      {activeQuestion.question_text}
-                    </p>
-                  </SectionCard>
+              <>
+                {activeTab === "overview" && (
+                  <div className="grid gap-5 lg:grid-cols-12">
+                    {/* Left Column: Question & Score */}
+                    <div className="lg:col-span-7 space-y-5">
+                      <SectionCard title={`Câu hỏi ${activeIdx + 1}`} subtitle={activeQuestion.category || "Tổng quan"}>
+                        <p className="text-lg font-bold leading-8 text-[var(--color-text)]">
+                          {activeQuestion.question_text}
+                        </p>
+                      </SectionCard>
+                      
+                      <SectionCard title="Phân tích điểm số">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-sm font-extrabold text-[var(--color-text-muted)]">Điểm câu trả lời này</span>
+                          <span className="text-3xl font-black text-[var(--color-primary)]">
+                            {activeFeedback?.score || 0}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-[var(--color-border)]/50 rounded-full h-3 overflow-hidden border border-[var(--color-border)]/20">
+                          <div
+                            className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)]"
+                            style={{ width: `${activeFeedback?.score || 0}%` }}
+                          />
+                        </div>
+                        
+                        <div className="mt-6 border-t border-[var(--color-border)] pt-5 space-y-4">
+                          <h4 className="text-xs font-black uppercase tracking-wider text-[var(--color-text-muted)]">Chi tiết tiêu chí</h4>
+                          {[
+                            { label: "Nội dung", weight: "40%", val: activeFeedback?.details_score?.content_score },
+                            { label: "Rõ ràng", weight: "25%", val: activeFeedback?.details_score?.clarity_score },
+                            { label: "Liên quan", weight: "20%", val: activeFeedback?.details_score?.relevance_score },
+                            { label: "Tự tin", weight: "15%", val: activeFeedback?.details_score?.confidence_score },
+                          ].map((dim) => (
+                            <div key={dim.label}>
+                              <div className="flex justify-between text-xs font-bold text-[var(--color-text)] mb-1.5">
+                                <span>{dim.label} <span className="text-[var(--color-text-muted)] font-semibold">({dim.weight})</span></span>
+                                <span>{dim.val || 0}%</span>
+                              </div>
+                              <div className="w-full bg-[var(--color-border)]/40 rounded-full h-2 overflow-hidden">
+                                <div className="h-full bg-[var(--color-primary)] rounded-full transition-all duration-300" style={{ width: `${dim.val || 0}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </SectionCard>
 
-                  {/* Replay Media Card */}
-                  <SectionCard title="Xem lại câu trả lời">
-                    <div className="aspect-video w-full overflow-hidden rounded-2xl bg-slate-950 border border-[var(--color-border)] relative flex flex-col justify-center items-center">
-                      {videoUrl ? (
-                        <video src={videoUrl} controls className="h-full w-full object-cover" />
-                      ) : audioUrl ? (
-                        <div className="w-full max-w-md p-6 bg-slate-900/50 rounded-xl border border-slate-800 text-center space-y-4">
-                          <audio src={audioUrl} controls className="w-full" />
-                          <span className="text-xs text-slate-400 block font-semibold">Bản ghi âm câu trả lời</span>
-                        </div>
-                      ) : (
-                        <div className="text-center text-slate-500 p-6">
-                          <Video className="h-10 w-10 mx-auto text-slate-600 mb-2" />
-                          <span className="text-sm font-bold block">Không tìm thấy video/audio ghi âm</span>
-                        </div>
-                      )}
+                      <SectionCard title="Tóm tắt phản hồi từ AI" icon={<Bot className="h-5 w-5 text-[var(--color-primary)] shrink-0" />}>
+                        <p className="text-sm leading-7 text-[var(--color-text-muted)] whitespace-pre-wrap font-semibold">
+                          {activeFeedback?.summary || "Đang phân tích phản hồi..."}
+                        </p>
+                      </SectionCard>
                     </div>
-                    <p className="text-[11px] text-[var(--color-text-muted)] mt-3">
-                      Nếu bạn tắt camera trong lúc ghi, video xem lại có thể bị gián đoạn nhưng âm thanh vẫn đầy đủ.
-                    </p>
-                  </SectionCard>
 
-                  {/* Answer suggestion card */}
-                  {activeFeedback ? (
-                    <SectionCard
-                      title="Gợi ý trả lời"
-                      action={
+                    {/* Right Column: Strengths & Weaknesses */}
+                    <div className="lg:col-span-5 space-y-5">
+                      <SectionCard title="Điểm mạnh nổi bật" icon={<ThumbsUp className="h-5 w-5 text-emerald-600 shrink-0" />}>
+                        {activeFeedback?.strengths?.length > 0 ? (
+                          <ul className="space-y-3">
+                            {activeFeedback.strengths.map((str, sIdx) => (
+                              <li key={sIdx} className="flex gap-2 text-sm text-[var(--color-text-muted)] font-semibold leading-relaxed">
+                                <span className="text-emerald-500 shrink-0 mt-0.5">✓</span>
+                                <span>{str}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-[var(--color-text-muted)] italic font-semibold">Không ghi nhận điểm mạnh đặc biệt.</p>
+                        )}
+                      </SectionCard>
+
+                      <SectionCard title="Điểm cần cải thiện" icon={<Lightbulb className="h-5 w-5 text-amber-500 shrink-0" />}>
+                        {activeFeedback?.weaknesses?.length > 0 ? (
+                          <ul className="space-y-3">
+                            {activeFeedback.weaknesses.map((weak, wIdx) => (
+                              <li key={wIdx} className="flex gap-2 text-sm text-[var(--color-text-muted)] font-semibold leading-relaxed">
+                                <span className="text-amber-500 shrink-0 mt-0.5">!</span>
+                                <span>{weak}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-[var(--color-text-muted)] italic font-semibold">Không ghi nhận ý kiến cải thiện nào.</p>
+                        )}
+                      </SectionCard>
+
+                      <div className="flex justify-between items-center mt-5 pt-3.5 border border-[var(--color-border)] rounded-[14px] bg-[var(--color-surface)] p-4 shadow-sm">
+                        <span className="text-xs text-[var(--color-text-muted)] font-semibold">Muốn cải thiện điểm số?</span>
                         <button
                           type="button"
-                          className="text-xs font-bold text-blue-600 flex items-center gap-1.5 cursor-pointer hover:underline"
-                          onClick={() => window.dispatchEvent(new CustomEvent("aiia:notice", { detail: { tone: "info", title: "Làm mới gợi ý", message: "Đang tổng hợp kịch bản trả lời tối ưu..." } }))}
+                          onClick={() => {
+                            shouldDeleteRef.current = false;
+                            navigate(roomPath(session));
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs font-bold text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] transition cursor-pointer shadow-sm"
                         >
-                          <RefreshCcw className="h-3 w-3" /> Làm mới
+                          <RefreshCcw className="h-3.5 w-3.5 text-[var(--color-primary)]" /> Thử lại câu này
                         </button>
-                      }
-                    >
-                      {/* ANSWER STRUCTURE */}
-                      <div className="space-y-4">
-                        <h4 className="text-xs font-black uppercase tracking-wider text-[var(--color-text-muted)]">ANSWER STRUCTURE</h4>
-                        <div className="border-l-2 border-blue-500/20 pl-5 ml-1 space-y-4">
-                          {activeFeedback.suggested_answer?.answer_structure?.map((step, sIdx) => {
-                            const isStart = step.startsWith("START:");
-                            const isEnd = step.startsWith("END:");
-                            let content = step;
-                            let badge = "";
-
-                            if (isStart) {
-                              content = step.replace("START:", "").trim();
-                              badge = "START";
-                            } else if (isEnd) {
-                              content = step.replace("END:", "").trim();
-                              badge = "END";
-                            } else {
-                              const match = step.match(/^(\d+)\.(.*)/);
-                              if (match) {
-                                badge = match[1];
-                                content = match[2].trim();
-                              }
-                            }
-
-                            return (
-                              <div key={sIdx} className="relative flex items-start gap-3">
-                                <span className={`absolute -left-[29px] top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black ${
-                                  isStart ? "bg-blue-600 text-white" : isEnd ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
-                                }`}>
-                                  {badge}
-                                </span>
-                                <p className="text-sm font-semibold text-[var(--color-text)] leading-6">{content}</p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <p className="text-[11px] text-[var(--color-text-muted)] border-t border-[var(--color-border)] pt-3">
-                          Dành khoảng 2-3 phút để trả lời, tập trung vào các điểm chính.
-                        </p>
                       </div>
+                    </div>
+                  </div>
+                )}
 
-                      {/* KEY TIPS */}
-                      <div className="mt-6 border-t border-[var(--color-border)] pt-5">
-                        <h4 className="text-xs font-black uppercase tracking-wider text-[var(--color-text-muted)] mb-3">KEY TIPS</h4>
+                {activeTab === "suggestion" && (
+                  <div className="grid gap-5 lg:grid-cols-12">
+                    <div className="lg:col-span-7 space-y-5">
+                      {activeFeedback ? (
+                        <SectionCard
+                          title="Kịch bản gợi ý trả lời"
+                          action={
+                            <button
+                              type="button"
+                              className="text-xs font-bold text-[var(--color-primary)] flex items-center gap-1.5 cursor-pointer hover:underline"
+                              onClick={() => window.dispatchEvent(new CustomEvent("aiia:notice", { detail: { tone: "info", title: "Làm mới gợi ý", message: "Đang tổng hợp kịch bản trả lời tối ưu..." } }))}
+                            >
+                              <RefreshCcw className="h-3 w-3" /> Làm mới
+                            </button>
+                          }
+                        >
+                          <div className="space-y-4">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-[var(--color-text-muted)]">Cấu trúc câu trả lời chuẩn (STAR/SARR)</h4>
+                            <div className="border-l-2 border-[var(--color-primary)]/20 pl-5 ml-1 space-y-4">
+                              {activeFeedback.suggested_answer?.answer_structure?.map((step, sIdx) => {
+                                const isStart = step.startsWith("START:");
+                                const isEnd = step.startsWith("END:");
+                                let content = step;
+                                let badge = "";
+
+                                if (isStart) {
+                                  content = step.replace("START:", "").trim();
+                                  badge = "START";
+                                } else if (isEnd) {
+                                  content = step.replace("END:", "").trim();
+                                  badge = "END";
+                                } else {
+                                  const match = step.match(/^(\d+)\.(.*)/);
+                                  if (match) {
+                                    badge = match[1];
+                                    content = match[2].trim();
+                                  }
+                                }
+
+                                return (
+                                  <div key={sIdx} className="relative flex items-start gap-3">
+                                    <span className={`absolute -left-[29px] top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black ${
+                                      isStart ? "bg-blue-600 text-white" : isEnd ? "bg-emerald-600 text-white" : "bg-[var(--color-border)] text-[var(--color-text-muted)]"
+                                    }`}>
+                                      {badge}
+                                    </span>
+                                    <p className="text-sm font-semibold text-[var(--color-text)] leading-6">{content}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </SectionCard>
+                      ) : (
+                        <EmptyState title="Không có gợi ý" description="Không tìm thấy kịch bản gợi ý cho câu hỏi này." />
+                      )}
+                    </div>
+
+                    <div className="lg:col-span-5 space-y-5">
+                      <SectionCard title="Mẹo phỏng vấn (Key Tips)">
                         <ul className="space-y-3">
-                          {activeFeedback.suggested_answer?.key_tips?.map((tip, tIdx) => (
-                            <li key={tIdx} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-sm font-semibold text-[var(--color-text-muted)] leading-6">
-                              {tip}
+                          {activeFeedback?.suggested_answer?.key_tips?.map((tip, tIdx) => (
+                            <li key={tIdx} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-sm font-semibold text-[var(--color-text-muted)] leading-relaxed">
+                              💡 {tip}
                             </li>
                           ))}
                         </ul>
-                      </div>
-
-                      <div className="flex justify-between items-center mt-6 pt-4 border-t border-[var(--color-border)]">
-                        <span className="text-xs font-bold text-slate-400 cursor-pointer hover:underline">More details</span>
-                        <span className="inline-flex items-center rounded-full bg-pink-500/10 border border-pink-500/20 px-2.5 py-0.5 text-[10px] font-black text-pink-500">
-                          Personal Question
-                        </span>
-                      </div>
-                    </SectionCard>
-                  ) : null}
-
-                </div>
-
-                {/* Right Column: Score, metrics, strengths, weaknesses, transcripts */}
-                <div className="lg:col-span-5 space-y-5">
-                  
-                  {/* Answer Score Card */}
-                  <SectionCard>
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-extrabold text-[var(--color-text-muted)]">Điểm câu trả lời</h4>
-                      <span className={`text-2xl font-black ${activeFeedback?.score > 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                        {activeFeedback?.score || 0}%
-                      </span>
+                      </SectionCard>
                     </div>
-                    <div className="w-full bg-[var(--color-border)] rounded-full h-2.5 mt-3.5 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${activeFeedback?.score > 0 ? "bg-emerald-500" : "bg-rose-500"}`}
-                        style={{ width: `${activeFeedback?.score || 0}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center mt-5 pt-3.5 border-t border-[var(--color-border)]">
-                      <span className="text-xs text-[var(--color-text-muted)] font-semibold">Muốn cải thiện điểm số?</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          shouldDeleteRef.current = false;
-                          navigate(roomPath(session));
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs font-bold text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] transition cursor-pointer shadow-sm"
-                      >
-                        <RefreshCcw className="h-3.5 w-3.5 text-blue-600" /> Thử lại câu này
-                      </button>
-                    </div>
-                  </SectionCard>
-
-                  {/* AI Summary Card */}
-                  <SectionCard title="Tóm tắt AI" icon={<Bot className="h-5 w-5 text-blue-600 shrink-0" />}>
-                    <p className="text-sm leading-7 text-[var(--color-text-muted)] whitespace-pre-wrap font-semibold">
-                      {activeFeedback?.summary || "No meaningful response was detected in the recording."}
-                    </p>
-                  </SectionCard>
-
-                  {/* Score Details breakdown */}
-                  <SectionCard title="Chi tiết điểm số">
-                    <div className="space-y-4">
-                      {[
-                        { label: "Nội dung", weight: "40%", val: activeFeedback?.details_score?.content_score },
-                        { label: "Rõ ràng", weight: "25%", val: activeFeedback?.details_score?.clarity_score },
-                        { label: "Liên quan", weight: "20%", val: activeFeedback?.details_score?.relevance_score },
-                        { label: "Tự tin", weight: "15%", val: activeFeedback?.details_score?.confidence_score },
-                      ].map((dim) => (
-                        <div key={dim.label}>
-                          <div className="flex justify-between text-xs font-bold text-[var(--color-text)] mb-1.5">
-                            <span>{dim.label} <span className="text-[var(--color-text-muted)] font-semibold">({dim.weight})</span></span>
-                            <span>{dim.val || 0}</span>
-                          </div>
-                          <div className="w-full bg-[var(--color-border)] rounded-full h-1.5 overflow-hidden">
-                            <div className="h-full bg-blue-600 rounded-full transition-all duration-300" style={{ width: `${dim.val || 0}%` }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </SectionCard>
-
-                  {/* Strengths Card */}
-                  <SectionCard title="Điểm mạnh" icon={<ThumbsUp className="h-5 w-5 text-emerald-600 shrink-0" />}>
-                    {activeFeedback?.strengths?.length > 0 ? (
-                      <ul className="list-disc pl-5 space-y-2 text-sm text-[var(--color-text-muted)] font-semibold leading-6">
-                        {activeFeedback.strengths.map((str, sIdx) => (
-                          <li key={sIdx}>{str}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-[var(--color-text-muted)] italic font-semibold">Không ghi nhận điểm mạnh nổi bật.</p>
-                    )}
-                  </SectionCard>
-
-                  {/* Weaknesses Card */}
-                  <SectionCard title="Cần cải thiện" icon={<Lightbulb className="h-5 w-5 text-amber-500 shrink-0" />}>
-                    {activeFeedback?.weaknesses?.length > 0 ? (
-                      <ul className="list-disc pl-5 space-y-2 text-sm text-[var(--color-text-muted)] font-semibold leading-6">
-                        {activeFeedback.weaknesses.map((weak, wIdx) => (
-                          <li key={wIdx}>{weak}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-[var(--color-text-muted)] italic font-semibold">Không ghi nhận ý kiến cải thiện đặc biệt.</p>
-                    )}
-                  </SectionCard>
-
-                  {/* Collapsible Transcript Card */}
-                  <div className="rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm space-y-3">
-                    <button
-                      type="button"
-                      className="w-full flex items-center justify-between cursor-pointer focus:outline-none"
-                      onClick={() => setIsTranscriptOpen(!isTranscriptOpen)}
-                    >
-                      <span className="flex items-center gap-2 text-sm font-extrabold text-[var(--color-text)]">
-                        <FileText className="h-5 w-5 text-slate-500 shrink-0" /> Bản ghi
-                      </span>
-                      {isTranscriptOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </button>
-                    {isTranscriptOpen && (
-                      <div className="mt-3 border-t border-[var(--color-border)] pt-4">
-                        <p className="text-sm leading-7 text-[var(--color-text)] whitespace-pre-wrap font-semibold">
-                          {activeAnswer?.transcript || activeAnswer?.transcription_error || "Bản ghi lời nói chưa sẵn sàng."}
-                        </p>
-                      </div>
-                    )}
                   </div>
+                )}
 
-                </div>
+                {activeTab === "transcript" && (
+                  <div className="grid gap-5 lg:grid-cols-12">
+                    <div className="lg:col-span-7 space-y-5">
+                      <SectionCard title="Bản ghi hình / Ghi âm câu trả lời">
+                        <div className="aspect-video w-full overflow-hidden rounded-2xl bg-slate-950 border border-[var(--color-border)] relative flex flex-col justify-center items-center">
+                          {videoUrl ? (
+                            <video src={videoUrl} controls className="h-full w-full object-cover" />
+                          ) : audioUrl ? (
+                            <div className="w-full max-w-md p-6 bg-slate-900/50 rounded-xl border border-slate-800 text-center space-y-4">
+                              <audio src={audioUrl} controls className="w-full" />
+                              <span className="text-xs text-slate-400 block font-semibold">Bản ghi âm câu trả lời</span>
+                            </div>
+                          ) : (
+                            <div className="text-center text-slate-500 p-6">
+                              <Video className="h-10 w-10 mx-auto text-slate-600 mb-2" />
+                              <span className="text-sm font-bold block">Không tìm thấy video/audio ghi âm</span>
+                            </div>
+                          )}
+                        </div>
+                      </SectionCard>
+                    </div>
 
-              </div>
+                    <div className="lg:col-span-5 space-y-5">
+                      <SectionCard title="Văn bản câu trả lời (Speech-to-Text)">
+                        <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-xl p-4 min-h-[120px]">
+                          <p className="text-sm leading-7 text-[var(--color-text)] whitespace-pre-wrap font-semibold">
+                            {activeAnswer?.transcript || activeAnswer?.transcription_error || "Chưa có bản ghi văn bản cho câu trả lời này."}
+                          </p>
+                        </div>
+                      </SectionCard>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : null}
           </>
         ) : null}

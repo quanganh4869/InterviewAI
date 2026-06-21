@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { MainLayout } from "../../components/layout";
-import { ConfirmDialog } from "../../components/ui";
+import { ConfirmDialog, LoadingModal } from "../../components/ui";
 import "../aiInterview/legacy.css";
 import {
   OverviewScreen,
@@ -50,6 +50,13 @@ export default function DashboardPage({ forcedScreen }) {
   const [hrInterviewSessions, setHrInterviewSessions] = useState([]);
   const [publishingJdId, setPublishingJdId] = useState(null);
   const [publicJobsError, setPublicJobsError] = useState("");
+  const activeLoadingMessage =
+    documents.activeOperation ||
+    (publishingJdId ? "Dang dang JD cho ung vien..." : "");
+  const loadingStatuses = useMemo(
+    () => (activeLoadingMessage ? [activeLoadingMessage] : []),
+    [activeLoadingMessage],
+  );
 
   const mapJobPostingToJdRow = (posting) => ({
     id: posting.id,
@@ -314,6 +321,11 @@ export default function DashboardPage({ forcedScreen }) {
         isSubmitting={documents.deletingDocument}
         onCancel={() => documents.setDeleteConfirm(null)}
         onConfirm={documents.confirmDelete}
+      />
+
+      <LoadingModal
+        isOpen={Boolean(activeLoadingMessage)}
+        statuses={loadingStatuses}
       />
     </MainLayout>
   );

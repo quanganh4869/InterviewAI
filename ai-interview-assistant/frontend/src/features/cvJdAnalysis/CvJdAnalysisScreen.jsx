@@ -6,6 +6,8 @@ import {
   Loader2,
   RefreshCw,
   Upload,
+  Check,
+  AlertCircle,
 } from "lucide-react";
 import {
   analyzeCvJd,
@@ -54,15 +56,31 @@ function scoreTone(score) {
   return "danger";
 }
 
-function SkillList({ items, emptyText }) {
+function SkillList({ items, emptyText, type }) {
   if (!items?.length) {
-    return <p className="text-sm text-[var(--color-text-muted)]">{emptyText}</p>;
+    return <p className="text-sm text-[var(--color-text-muted)] font-semibold italic">{emptyText}</p>;
   }
+
+  const isMatched = type === "matched";
 
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <Badge key={item}>{item}</Badge>
+        <span
+          key={item}
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-all duration-200 border ${
+            isMatched
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+              : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
+          }`}
+        >
+          {isMatched ? (
+            <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+          ) : (
+            <AlertCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+          )}
+          {item}
+        </span>
       ))}
     </div>
   );
@@ -161,6 +179,7 @@ function ReportPanel({ report, onStartInterview, isStartingInterview }) {
               <SkillList
                 items={skillGap.matched_hard_skills}
                 emptyText="Chưa nhận diện hard skill trùng khớp."
+                type="matched"
               />
             </div>
             <div>
@@ -170,29 +189,37 @@ function ReportPanel({ report, onStartInterview, isStartingInterview }) {
               <SkillList
                 items={skillGap.missing_hard_skills}
                 emptyText="Không có hard skill thiếu từ JD đã nhận diện."
+                type="missing"
               />
             </div>
           </div>
         </SectionCard>
 
         <SectionCard title="Kinh nghiệm" subtitle="Đối chiếu số năm được bóc tách">
-          <p className="text-sm leading-6 text-[var(--color-text)] whitespace-pre-wrap">
+          <p className="text-sm leading-6 text-[var(--color-text)] whitespace-pre-wrap font-semibold">
             {report.deep_experience_alignment}
           </p>
         </SectionCard>
       </div>
 
-      <SectionCard title="Khuyến nghị hành động">
-        <ol className="grid gap-2 text-sm text-[var(--color-text)]">
-          {(report.actionable_recommendations || []).map((item) => (
-            <li
-              key={item}
-              className="rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2"
-            >
-              {item}
-            </li>
+      <SectionCard title="Khuyến nghị hành động" subtitle="Các bước cải thiện hồ sơ & nâng cao tỷ lệ tuyển dụng">
+        <div className="relative border-l border-[var(--color-border)] ml-4 pl-6 space-y-6">
+          {(report.actionable_recommendations || []).map((item, idx) => (
+            <div key={idx} className="relative group">
+              {/* Timeline marker */}
+              <div className="absolute -left-[33px] top-1 flex h-4 w-4 items-center justify-center rounded-full border border-[var(--color-primary)] bg-[var(--color-bg)] text-[9px] font-black text-[var(--color-primary)] shadow-sm transition-transform duration-300 group-hover:scale-110">
+                {idx + 1}
+              </div>
+              
+              {/* Content card */}
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 shadow-sm hover:border-[var(--color-primary)]/40 hover:shadow-md transition-all duration-200">
+                <p className="text-sm font-semibold leading-relaxed text-[var(--color-text)]">
+                  {item}
+                </p>
+              </div>
+            </div>
           ))}
-        </ol>
+        </div>
       </SectionCard>
     </div>
   );

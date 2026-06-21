@@ -14,6 +14,102 @@ import { Button, EmptyState, SectionCard, StatusBadge } from "../../../component
 import "../../aiInterview/legacy.css";
 import HrAvatar2D from "./components/HrAvatar2D";
 
+function AudioWaveform({ activityLevel, isRecording }) {
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // Set display size
+    const resizeCanvas = () => {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+    };
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let phase = 0;
+    
+    const drawWave = (phaseShift, amplitudeMultiplier, color, lineWidth) => {
+      const width = canvas.width;
+      const height = canvas.height;
+      const midY = height / 2;
+      
+      ctx.beginPath();
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = color;
+
+      // Base amplitude scales with activityLevel (0 to 100)
+      const baseAmp = (activityLevel / 100) * (height * 0.4);
+      
+      for (let x = 0; x < width; x++) {
+        // Normalize X coordinate to 0-1 range for sine computation
+        const normalizedX = x / width;
+        
+        // Fade out waves near the edges using a sine envelope
+        const envelope = Math.sin(normalizedX * Math.PI);
+        
+        // Sine wave calculations
+        const angle = normalizedX * Math.PI * 3.5 + phase + phaseShift;
+        const y = midY + Math.sin(angle) * baseAmp * amplitudeMultiplier * envelope;
+        
+        if (x === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+    };
+
+    const render = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      if (!isRecording) {
+        // Flat line when not recording
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height / 2);
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.strokeStyle = "rgba(16, 185, 129, 0.2)";
+        ctx.lineWidth = 3 * window.devicePixelRatio;
+        ctx.stroke();
+      } else {
+        phase += 0.15;
+        
+        // Draw 3 layers of waves with different phases, amplitudes, and colors
+        drawWave(0, 0.9, "rgba(16, 185, 129, 0.8)", 3 * window.devicePixelRatio); // Main Emerald wave
+        drawWave(Math.PI / 2, 0.5, "rgba(56, 189, 248, 0.5)", 2 * window.devicePixelRatio); // Sky Blue wave
+        drawWave(-Math.PI / 4, 0.3, "rgba(99, 102, 241, 0.3)", 1.5 * window.devicePixelRatio); // Indigo wave
+      }
+      
+      animationRef.current = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isRecording, activityLevel]);
+
+  return (
+    <canvas 
+      ref={canvasRef} 
+      className="absolute bottom-0 left-0 w-full h-24 pointer-events-none z-10" 
+      style={{ opacity: 0.8 }}
+    />
+  );
+}
+
 function useQuery() {
   const location = useLocation();
   return useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -220,6 +316,9 @@ export default function InterviewSessionRoomPage() {
     window.addEventListener("beforeunload", handleUnload);
     return () => {
       window.removeEventListener("beforeunload", handleUnload);
+      if (session?.session_type === "practice" && session?.id && !isFinishingRef.current) {
+        deleteInterviewSession({ sessionId: session.id }).catch(() => null);
+      }
     };
   }, [session?.id, session?.session_type]);
 
@@ -235,10 +334,8 @@ export default function InterviewSessionRoomPage() {
   const [realtimeText, setRealtimeText] = useState("");
   const [localTranscripts, setLocalTranscripts] = useState({});
   const recognitionRef = useRef(null);
-  const recognitionRestartTimerRef = useRef(null);
   const accumulatedTranscriptRef = useRef("");
   const currentSessionFinalRef = useRef("");
-  const currentRecordingQuestionIdRef = useRef(null);
   const isRecordingRef = useRef(false);
   const messagesEndRef = useRef(null);
   const [lastSpokenIndex, setLastSpokenIndex] = useState(-1);
@@ -246,43 +343,7 @@ export default function InterviewSessionRoomPage() {
   const [sttStatus, setSttStatus] = useState("");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
 
-  const getLiveTranscriptSnapshot = useCallback(() => {
-    const liveText = (realtimeText || "").replace(/\s+/g, " ").trim();
-    if (liveText) return liveText;
-    return [
-      accumulatedTranscriptRef.current,
-      currentSessionFinalRef.current,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }, [realtimeText]);
-
-  const rememberLiveTranscript = useCallback((text, questionId = currentRecordingQuestionIdRef.current) => {
-    const cleanText = (text || "").replace(/\s+/g, " ").trim();
-    if (!cleanText || !questionId) return;
-    setLocalTranscripts((prev) => {
-      if (prev[questionId] === cleanText) return prev;
-      return {
-        ...prev,
-        [questionId]: cleanText,
-      };
-    });
-  }, []);
-
-  const [selectedVoice, setSelectedVoice] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("selected_voice") || "mc_nu";
-    }
-    return "mc_nu";
-  });
-  const [customVoiceId, setCustomVoiceId] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("custom_voice_id") || "";
-    }
-    return "";
-  });
+  const [selectedVoice, setSelectedVoice] = useState("mc_nu");
   const enVoiceRef = useRef(null);
   const viVoiceRef = useRef(null);
   const serverAudioRef = useRef(null);
@@ -421,10 +482,8 @@ export default function InterviewSessionRoomPage() {
       speakNextChunk();
     } else {
       setIsAiSpeaking(true);
-      const voiceParam = selectedVoice === "eleven_custom" ? (customVoiceId || "mc_nu") : selectedVoice;
-      const host = typeof window !== "undefined" ? window.location.hostname : "localhost";
-      const aiServiceUrl = import.meta.env.VITE_AI_SERVICE_URL || `http://${host}:8001`;
-      const url = `${aiServiceUrl}/api/v1/tts/synthesize?text=${encodeURIComponent(text)}&voice=${voiceParam}`;
+      const host = window.location.hostname || "localhost";
+      const url = `http://${host}:8001/api/v1/tts/synthesize?text=${encodeURIComponent(text)}&voice=${selectedVoice}`;
       const audio = new Audio(url);
       serverAudioRef.current = audio;
       
@@ -436,14 +495,6 @@ export default function InterviewSessionRoomPage() {
         console.error("Server TTS audio play error:", err);
         setIsAiSpeaking(false);
         serverAudioRef.current = null;
-        // Fallback to client-side browser SpeechSynthesis
-        console.warn("Falling back to client-side browser SpeechSynthesis due to server TTS error.");
-        const segments = segmentText(text);
-        if (segments.length > 0) {
-          ttsQueueRef.current = segments;
-          currentTtsIndexRef.current = 0;
-          speakNextChunk();
-        }
       };
       audio.play().catch(err => {
         console.warn("Audio play blocked by browser:", err);
@@ -643,31 +694,21 @@ export default function InterviewSessionRoomPage() {
     try {
       stopSpeaking();
       const activeStream = await ensureMedia();
-      if (isMicMuted) {
-        setIsMicMuted(false);
-      }
       // Apply current mute states on the fresh active stream tracks
       activeStream.getAudioTracks().forEach(track => {
-        track.enabled = true;
+        track.enabled = !isMicMuted;
       });
       activeStream.getVideoTracks().forEach(track => {
         track.enabled = !isCameraMuted;
       });
       recordedChunksRef.current = [];
 
-      const audioTracks = activeStream.getAudioTracks();
-      if (!audioTracks.length) {
-        throw new Error("KhÃ´ng tÃ¬m tháº¥y audio track tá»« micro.");
-      }
-      const recordingStream = new MediaStream(audioTracks);
-      const mimeType = getSupportedMimeType("audio");
-      const options = {
-        ...(mimeType ? { mimeType } : {}),
-        audioBitsPerSecond: 64000,
-      };
+      const hasVideo = activeStream.getVideoTracks().length > 0;
+      const mimeType = getSupportedMimeType(hasVideo ? "video" : "audio");
+      const options = mimeType ? { mimeType } : undefined;
 
-      console.log(`Starting audio MediaRecorder for STT. MIME type: ${mimeType || "browser-default"}`);
-      const recorder = new MediaRecorder(recordingStream, options);
+      console.log(`Starting single MediaRecorder. Has video: ${hasVideo}. MIME type: ${mimeType}`);
+      const recorder = new MediaRecorder(activeStream, options);
       recorder.ondataavailable = (event) => {
         if (event.data?.size) recordedChunksRef.current.push(event.data);
       };
@@ -680,11 +721,9 @@ export default function InterviewSessionRoomPage() {
 
       // Initialize Web Speech API for real-time transcription feedback
       isRecordingRef.current = true;
-      currentRecordingQuestionIdRef.current = currentQuestion?.id || null;
       accumulatedTranscriptRef.current = "";
       currentSessionFinalRef.current = "";
       setRealtimeText("");
-      setSttStatus("");
 
       if (typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition)) {
         setSttStatus("Đang khởi động...");
@@ -694,7 +733,6 @@ export default function InterviewSessionRoomPage() {
           const rec = new SpeechRecognition();
           rec.continuous = true;
           rec.interimResults = true;
-          rec.maxAlternatives = 1;
 
           rec.onstart = () => {
             console.log("[STT] SpeechRecognition active. Listening for voice input...");
@@ -703,30 +741,18 @@ export default function InterviewSessionRoomPage() {
 
           rec.onresult = (event) => {
             setSttStatus("Đang nhận diện...");
-            let nextFinal = "";
+            let sessionFinal = "";
             let sessionInterim = "";
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
+            for (let i = 0; i < event.results.length; ++i) {
               const result = event.results[i];
-              const transcript = result[0]?.transcript || "";
               if (result.isFinal) {
-                nextFinal += transcript;
+                sessionFinal += result[0].transcript;
               } else {
-                sessionInterim += transcript;
+                sessionInterim += result[0].transcript;
               }
             }
-            if (nextFinal.trim()) {
-              currentSessionFinalRef.current = [
-                currentSessionFinalRef.current,
-                nextFinal.trim(),
-              ].filter(Boolean).join(" ");
-            }
-            const liveText = [
-              accumulatedTranscriptRef.current,
-              currentSessionFinalRef.current,
-              sessionInterim,
-            ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-            setRealtimeText(liveText);
-            rememberLiveTranscript(liveText);
+            currentSessionFinalRef.current = sessionFinal;
+            setRealtimeText(accumulatedTranscriptRef.current + (accumulatedTranscriptRef.current && (sessionFinal || sessionInterim) ? " " : "") + sessionFinal + sessionInterim);
           };
 
           rec.onerror = (err) => {
@@ -750,15 +776,10 @@ export default function InterviewSessionRoomPage() {
               accumulatedTranscriptRef.current += (accumulatedTranscriptRef.current ? " " : "") + currentSessionFinalRef.current;
             }
             currentSessionFinalRef.current = "";
-            setRealtimeText(accumulatedTranscriptRef.current);
-            rememberLiveTranscript(accumulatedTranscriptRef.current);
 
             if (isRecordingRef.current) {
               setSttStatus("Đang khởi động lại...");
-              if (recognitionRestartTimerRef.current) {
-                clearTimeout(recognitionRestartTimerRef.current);
-              }
-              recognitionRestartTimerRef.current = setTimeout(() => {
+              setTimeout(() => {
                 if (isRecordingRef.current) {
                   try {
                     recognitionRef.current.start();
@@ -766,7 +787,7 @@ export default function InterviewSessionRoomPage() {
                     console.warn("[STT] Failed to restart SpeechRecognition:", e);
                   }
                 }
-              }, 250);
+              }, 300);
             } else {
               setSttStatus("Đã dừng.");
             }
@@ -775,9 +796,9 @@ export default function InterviewSessionRoomPage() {
           recognitionRef.current = rec;
         }
 
-        const configuredLanguage = String(session?.practice_config?.language || "").toLowerCase();
-        const isEnglishSession = configuredLanguage.startsWith("en");
-        recognitionRef.current.lang = isEnglishSession ? "en-US" : "vi-VN";
+        // Apply dynamic language setting before starting
+        const isEng = isEnglishText(currentQuestion?.question_text);
+        recognitionRef.current.lang = isEng ? "en-US" : "vi-VN";
         console.log(`[STT] SpeechRecognition starting. Language: ${recognitionRef.current.lang} | Question: "${currentQuestion?.question_text || ""}"`);
 
         const tryStart = (retries = 3) => {
@@ -823,20 +844,6 @@ export default function InterviewSessionRoomPage() {
 
   const stopSpeechRecognition = () => {
     isRecordingRef.current = false;
-    if (recognitionRestartTimerRef.current) {
-      clearTimeout(recognitionRestartTimerRef.current);
-      recognitionRestartTimerRef.current = null;
-    }
-    const finalText = [
-      accumulatedTranscriptRef.current,
-      currentSessionFinalRef.current,
-    ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-    if (finalText) {
-      accumulatedTranscriptRef.current = finalText;
-      currentSessionFinalRef.current = "";
-      setRealtimeText(finalText);
-      rememberLiveTranscript(finalText);
-    }
     setSttStatus("Đã dừng.");
     if (recognitionRef.current) {
       try {
@@ -849,28 +856,30 @@ export default function InterviewSessionRoomPage() {
     if (!currentQuestion) return;
     setIsUploadingAnswer(true);
     setUploadProgress(0);
-    stopSpeechRecognition();
-
+    
     // Save the final real-time text to localTranscripts map before clearing it
-    const finalLiveText = getLiveTranscriptSnapshot();
-    rememberLiveTranscript(finalLiveText, currentQuestion.id);
-
+    if (realtimeText) {
+      setLocalTranscripts(prev => ({
+        ...prev,
+        [currentQuestion.id]: realtimeText
+      }));
+    }
+    
+    stopSpeechRecognition();
     try {
       await stopRecorder(recorderRef.current);
       setIsRecording(false);
 
-      const fallbackMime = "audio/webm";
+      const hasVideo = stream?.getVideoTracks().length > 0;
+      const fallbackMime = hasVideo ? "video/webm" : "audio/webm";
       const recordedBlob = buildBlob(recordedChunksRef.current, fallbackMime);
-      if (!recordedBlob || recordedBlob.size === 0) {
-        throw new Error("KhÃ´ng thu Ä‘Æ°á»£c dá»¯ liá»‡u Ã¢m thanh tá»« micro.");
-      }
       const durationSeconds = recordingStartedAt ? (Date.now() - recordingStartedAt) / 1000 : null;
 
       await uploadInterviewAnswer({
         sessionId: session.id,
         questionId: currentQuestion.id,
         audioBlob: recordedBlob,
-        videoBlob: null,
+        videoBlob: hasVideo ? recordedBlob : null,
         durationSeconds,
         onProgress: (progress) => {
           setUploadProgress(progress);
@@ -914,8 +923,7 @@ export default function InterviewSessionRoomPage() {
 
         const ans = (session?.answers || []).find((a) => a.question_id === q.id);
         if (ans) {
-          const liveTxt = index === currentIndex ? getLiveTranscriptSnapshot() : "";
-          const localTxt = localTranscripts[q.id] || liveTxt || "";
+          const localTxt = localTranscripts[q.id] || "";
           let displayText = ans.transcript || localTxt;
           if (!displayText) {
             if (ans.transcription_status === "processing") {
@@ -931,13 +939,12 @@ export default function InterviewSessionRoomPage() {
             sender: "candidate",
             text: displayText,
           });
-        } else if (index === currentIndex && (isRecording || isUploadingAnswer || realtimeText || localTranscripts[q.id])) {
-          const liveText = getLiveTranscriptSnapshot() || localTranscripts[q.id] || "";
+        } else if (index === currentIndex && isRecording) {
           msgs.push({
             id: "current-recording",
             sender: "candidate",
-            text: liveText 
-              ? liveText 
+            text: realtimeText 
+              ? realtimeText 
               : sttStatus 
               ? `(${sttStatus})` 
               : "(Đang ghi nhận giọng nói của bạn...)",
@@ -947,7 +954,7 @@ export default function InterviewSessionRoomPage() {
       }
     });
     return msgs;
-  }, [questions, currentIndex, session?.answers, isRecording, isUploadingAnswer, realtimeText, sttStatus, localTranscripts, getLiveTranscriptSnapshot]);
+  }, [questions, currentIndex, session?.answers, isRecording, realtimeText, sttStatus, localTranscripts]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1037,11 +1044,7 @@ export default function InterviewSessionRoomPage() {
                     <select
                       value={selectedVoice}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        setSelectedVoice(val);
-                        if (typeof window !== "undefined") {
-                          localStorage.setItem("selected_voice", val);
-                        }
+                        setSelectedVoice(e.target.value);
                       }}
                       style={{
                         width: "100%",
@@ -1061,9 +1064,6 @@ export default function InterviewSessionRoomPage() {
                       <option value="mc_nam" style={{ backgroundColor: "#141229", color: "#eef2ff" }}>MC Nam (Chuyên nghiệp)</option>
                       <option value="mc_nu" style={{ backgroundColor: "#141229", color: "#eef2ff" }}>MC Nữ (Truyền cảm)</option>
                       <option value="do_mixi" style={{ backgroundColor: "#141229", color: "#eef2ff" }}>Độ Mixi (AI Voice)</option>
-                      <option value="eleven_nam" style={{ backgroundColor: "#141229", color: "#eef2ff" }}>ElevenLabs Premium Nam</option>
-                      <option value="eleven_nu" style={{ backgroundColor: "#141229", color: "#eef2ff" }}>ElevenLabs Premium Nữ</option>
-                      <option value="eleven_custom" style={{ backgroundColor: "#141229", color: "#eef2ff" }}>Giọng Clone riêng (Nhập Voice ID)</option>
                     </select>
                     <div style={{
                       position: "absolute",
@@ -1077,41 +1077,6 @@ export default function InterviewSessionRoomPage() {
                       ▼
                     </div>
                   </div>
-                  {selectedVoice === "eleven_custom" && (
-                    <div style={{ marginTop: "10px" }}>
-                      <label style={{
-                        fontSize: "12px",
-                        fontWeight: "500",
-                        color: "#a5b4fc",
-                        display: "block",
-                        marginBottom: "4px"
-                      }}>
-                        Nhập ElevenLabs Voice ID của bạn:
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Ví dụ: pNInz6obpmmqZClfhlaH"
-                        value={customVoiceId}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCustomVoiceId(val);
-                          if (typeof window !== "undefined") {
-                            localStorage.setItem("custom_voice_id", val);
-                          }
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "8px 12px",
-                          borderRadius: "8px",
-                          background: "rgba(19, 22, 43, 0.9)",
-                          border: "1px solid rgba(135, 153, 255, 0.25)",
-                          color: "#eef2ff",
-                          fontSize: "13px",
-                          outline: "none"
-                        }}
-                      />
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1273,6 +1238,7 @@ export default function InterviewSessionRoomPage() {
                     playsInline
                     className={`h-full w-full object-cover ${(!stream || !stream.getVideoTracks().length || isCameraMuted) ? "hidden" : ""}`}
                   />
+                  <AudioWaveform activityLevel={micActivityLevel} isRecording={isRecording} />
                   {(!stream || !stream.getVideoTracks().length || isCameraMuted) && (
                     <div className="grid h-full place-items-center text-sm font-bold text-white/70">
                       <div className="flex flex-col items-center gap-3">
@@ -1400,7 +1366,18 @@ export default function InterviewSessionRoomPage() {
                 }
               >
                 <div className="flex-1 min-h-0 avatar-container relative flex items-center justify-center">
-                  <HrAvatar2D isSpeaking={isAiSpeaking} />
+                  {/* Glowing State Halo Container */}
+                  <div className={`relative flex items-center justify-center p-8 rounded-full border transition-all duration-500 ${
+                    isAiSpeaking
+                      ? "bg-emerald-500/5 border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.25)]"
+                      : isUploadingAnswer
+                      ? "bg-indigo-500/5 border-indigo-500/30 shadow-[0_0_40px_rgba(99,102,241,0.25)] animate-pulse"
+                      : isRecording
+                      ? "bg-amber-500/5 border-amber-500/30 shadow-[0_0_40px_rgba(245,158,11,0.2)]"
+                      : "border-transparent bg-transparent"
+                  }`}>
+                    <HrAvatar2D isSpeaking={isAiSpeaking} />
+                  </div>
                   {/* Waveform indicator overlay */}
                   {isAiSpeaking && (
                     <div className="absolute bottom-3 right-3 z-10 waveform-container">

@@ -29,32 +29,34 @@ const modules = [
 
 export default function ProductPage() {
   return (
-    <main className="min-h-screen bg-[#f8fbff]">
+    <main className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] transition-colors duration-200">
       <SiteHeader />
 
       <div className="mx-auto max-w-7xl px-4 pb-12 pt-8 sm:px-6 lg:px-8">
-        <section className="grid gap-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm lg:grid-cols-12 lg:items-center">
-          <div className="lg:col-span-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">Sản phẩm</p>
-            <h1 className="mt-3 font-display text-4xl font-extrabold text-slate-900">
+        <section className="relative overflow-hidden grid gap-8 rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm lg:grid-cols-12 lg:items-center">
+          <div className="absolute top-0 right-0 -mt-12 -mr-12 w-72 h-72 rounded-full bg-[var(--color-primary-soft)] opacity-40 blur-3xl pointer-events-none" />
+          
+          <div className="lg:col-span-6 relative z-10">
+            <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)]">Sản phẩm</p>
+            <h1 className="mt-3 font-display text-4xl font-extrabold text-[var(--color-text)] tracking-tight">
               Bộ công cụ phỏng vấn AI cho đội tuyển dụng.
             </h1>
-            <p className="mt-4 text-base text-slate-700">
+            <p className="mt-4 text-base text-[var(--color-text-muted)] leading-relaxed">
               Thiết kế cho nhà tuyển dụng và quản lý tuyển dụng cần dữ liệu rõ ràng để ra quyết
               định nhanh.
             </p>
             <Link
               to="/bang-gia"
-              className="mt-6 inline-flex rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800"
+              className="mt-6 inline-flex rounded-xl bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)] active:scale-95 shadow-md shadow-indigo-500/10 hover:shadow-indigo-500/20"
             >
               Xem bảng giá
             </Link>
           </div>
-          <div className="lg:col-span-6">
+          <div className="lg:col-span-6 relative z-10">
             <img
               src="https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=1100&q=80"
               alt="Tổng quan sản phẩm AI Interview"
-              className="h-72 w-full rounded-2xl object-cover"
+              className="h-72 w-full rounded-2xl object-cover opacity-90 border border-[var(--color-border)] shadow-sm"
               loading="lazy"
             />
           </div>
@@ -66,15 +68,15 @@ export default function ProductPage() {
             return (
               <article
                 key={item.title}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"
+                className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"
               >
-                <img src={item.image} alt={item.title} className="h-40 w-full object-cover" loading="lazy" />
-                <div className="p-5">
-                  <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                <img src={item.image} alt={item.title} className="h-40 w-full object-cover opacity-90" loading="lazy" />
+                <div className="p-5 border-t border-[var(--color-border)]">
+                  <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
                     <Icon className="h-4 w-4" />
                   </div>
-                  <h2 className="mt-3 text-lg font-bold text-slate-900">{item.title}</h2>
-                  <p className="mt-2 text-sm text-slate-700">{item.desc}</p>
+                  <h2 className="mt-3 text-lg font-bold text-[var(--color-text)]">{item.title}</h2>
+                  <p className="mt-2 text-sm text-[var(--color-text-muted)] leading-relaxed">{item.desc}</p>
                 </div>
               </article>
             );
