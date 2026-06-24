@@ -339,6 +339,7 @@ export default function InterviewSessionRoomPage() {
   const isRecordingRef = useRef(false);
   const messagesEndRef = useRef(null);
   const [lastSpokenIndex, setLastSpokenIndex] = useState(-1);
+  const [pendingAnswerTransition, setPendingAnswerTransition] = useState(null);
   const [mediaError, setMediaError] = useState("");
   const [sttStatus, setSttStatus] = useState("");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -349,6 +350,42 @@ export default function InterviewSessionRoomPage() {
   const serverAudioRef = useRef(null);
   const ttsQueueRef = useRef([]);
   const currentTtsIndexRef = useRef(0);
+  const keyboardAudioContextRef = useRef(null);
+
+  const prepareKeyboardSound = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+
+    let audioContext = keyboardAudioContextRef.current;
+    if (!audioContext || audioContext.state === "closed") {
+      audioContext = new AudioContextClass();
+      keyboardAudioContextRef.current = audioContext;
+    }
+    audioContext.resume?.().catch(() => null);
+    return audioContext;
+  }, []);
+
+  const playKeyboardSound = useCallback(() => {
+    const audioContext = prepareKeyboardSound();
+    if (!audioContext) return;
+
+    // A short series of low-volume clicks provides typing feedback without an audio asset.
+    for (let index = 0; index < 8; index += 1) {
+      const startAt = audioContext.currentTime + index * 0.075;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "square";
+      oscillator.frequency.setValueAtTime(index % 4 === 3 ? 1250 : 1650, startAt);
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(0.018, startAt + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.028);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(startAt);
+      oscillator.stop(startAt + 0.03);
+    }
+  }, [prepareKeyboardSound]);
 
   const getVoices = useCallback(() => {
     if (typeof window === "undefined" || !window.speechSynthesis) return [];
@@ -510,16 +547,51 @@ export default function InterviewSessionRoomPage() {
   const answeredQuestionIds = new Set((session?.answers || []).map((item) => item.question_id));
   const isFinished = ["evaluating", "completed", "failed"].includes(session?.status);
 
+  // Keep the answer on screen long enough to be perceived before advancing or speaking again.
+  useEffect(() => {
+    if (!pendingAnswerTransition) return undefined;
+
+    const savedAnswer = (session?.answers || []).find(
+      (answer) => answer.question_id === pendingAnswerTransition.questionId,
+    );
+    if (!savedAnswer) return undefined;
+
+    const displayedTranscript = savedAnswer.transcript || localTranscripts[pendingAnswerTransition.questionId];
+    if (!displayedTranscript && !["failed", "skipped"].includes(savedAnswer.transcription_status)) {
+      const pollTimer = window.setTimeout(async () => {
+        try {
+          setSession(await fetchInterviewReport({ sessionId: session.id }));
+        } catch (pollError) {
+          console.warn("Unable to refresh the answer transcript:", pollError);
+        }
+      }, 1000);
+      return () => window.clearTimeout(pollTimer);
+    }
+
+    playKeyboardSound();
+    const transitionTimer = window.setTimeout(() => {
+      if (pendingAnswerTransition.nextIndex !== null) {
+        setCurrentIndex(pendingAnswerTransition.nextIndex);
+      }
+      setPendingAnswerTransition(null);
+    }, 750);
+
+    return () => window.clearTimeout(transitionTimer);
+  }, [pendingAnswerTransition, playKeyboardSound, session?.answers, session?.id, localTranscripts]);
+
   // Cancel speech on unmount
   useEffect(() => {
     return () => {
       stopSpeaking();
+      if (keyboardAudioContextRef.current?.state !== "closed") {
+        keyboardAudioContextRef.current.close().catch(() => null);
+      }
     };
   }, []);
 
   // Automatic Text-to-Speech logic
   useEffect(() => {
-    if (status !== "ready" || !questions.length || isFinished) return;
+    if (status !== "ready" || !questions.length || isFinished || pendingAnswerTransition) return;
 
     const hasAnswerForPrev = currentIndex > 0 && (session?.answers || []).some(a => a.question_id === questions[currentIndex - 1].id);
     const hasAnswerForCurrent = (session?.answers || []).some(a => a.question_id === questions[currentIndex].id);
@@ -557,7 +629,7 @@ export default function InterviewSessionRoomPage() {
       }
       setLastSpokenIndex(currentIndex);
     }
-  }, [currentIndex, status, questions, session?.answers, isFinished, lastSpokenIndex]);
+  }, [currentIndex, status, questions, session?.answers, isFinished, lastSpokenIndex, pendingAnswerTransition]);
 
   useEffect(() => {
     let cancelled = false;
@@ -854,14 +926,20 @@ export default function InterviewSessionRoomPage() {
 
   const stopAndUpload = async () => {
     if (!currentQuestion) return;
+    // Create/resume the audio context while this click still has browser user activation.
+    prepareKeyboardSound();
     setIsUploadingAnswer(true);
     setUploadProgress(0);
     
-    // Save the final real-time text to localTranscripts map before clearing it
-    if (realtimeText) {
+    // Preserve browser speech-recognition text so it appears immediately while server STT finishes.
+    const recognizedText = realtimeText.trim() || [
+      accumulatedTranscriptRef.current,
+      currentSessionFinalRef.current,
+    ].filter(Boolean).join(" ").trim();
+    if (recognizedText) {
       setLocalTranscripts(prev => ({
         ...prev,
-        [currentQuestion.id]: realtimeText
+        [currentQuestion.id]: recognizedText
       }));
     }
     
@@ -888,7 +966,10 @@ export default function InterviewSessionRoomPage() {
       const refreshed = await fetchInterviewReport({ sessionId: session.id });
       setSession(refreshed);
       setRealtimeText("");
-      if (currentIndex < questions.length - 1) setCurrentIndex((value) => value + 1);
+      setPendingAnswerTransition({
+        questionId: currentQuestion.id,
+        nextIndex: currentIndex < questions.length - 1 ? currentIndex + 1 : null,
+      });
     } catch (err) {
       console.error("Upload error:", err);
       setError(err?.message || "Không thể tải câu trả lời lên hệ thống.");
@@ -934,27 +1015,33 @@ export default function InterviewSessionRoomPage() {
               displayText = "Đang xử lý...";
             }
           }
+          const isTranscribing = !ans.transcript && !localTxt && ans.transcription_status !== "failed";
+          if (isTranscribing) displayText = "Đang chuyển giọng nói sang văn bản";
           msgs.push({
             id: `a-${ans.id}`,
             sender: "candidate",
             text: displayText,
+            isTranscribing,
           });
-        } else if (index === currentIndex && isRecording) {
+        } else if (index === currentIndex && (isRecording || isUploadingAnswer)) {
           msgs.push({
-            id: "current-recording",
+            id: isRecording ? "current-recording" : "answer-transcribing",
             sender: "candidate",
-            text: realtimeText 
-              ? realtimeText 
-              : sttStatus 
-              ? `(${sttStatus})` 
-              : "(Đang ghi nhận giọng nói của bạn...)",
-            isLive: true,
+            text: isRecording
+              ? realtimeText
+                ? realtimeText
+                : sttStatus
+                ? `(${sttStatus})`
+                : "(Đang ghi nhận giọng nói của bạn...)"
+              : "Đang chuyển giọng nói sang văn bản",
+            isLive: isRecording,
+            isTranscribing: isUploadingAnswer,
           });
         }
       }
     });
     return msgs;
-  }, [questions, currentIndex, session?.answers, isRecording, realtimeText, sttStatus, localTranscripts]);
+  }, [questions, currentIndex, session?.answers, isRecording, isUploadingAnswer, realtimeText, sttStatus, localTranscripts]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1413,7 +1500,15 @@ export default function InterviewSessionRoomPage() {
               title="Hội thoại thời gian thực" 
               subtitle="Whisper & Speech Engine"
               action={
-                isRecording ? (
+                isUploadingAnswer ? (
+                  <div className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                    </span>
+                    Đang chuyển giọng nói sang văn bản...
+                  </div>
+                ) : isRecording ? (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-bold">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -1478,7 +1573,20 @@ export default function InterviewSessionRoomPage() {
                             : "bg-[var(--color-primary-soft)] border border-[var(--color-primary-soft)] text-[var(--color-text)] rounded-tr-[4px]"
                         }`}
                       >
-                        {msg.text}
+                        {msg.isTranscribing ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span>{msg.text}</span>
+                            <span className="inline-flex gap-0.5" aria-label="Đang xử lý">
+                              {[0, 120, 240].map((delay) => (
+                                <span
+                                  key={delay}
+                                  className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce"
+                                  style={{ animationDelay: `${delay}ms` }}
+                                />
+                              ))}
+                            </span>
+                          </span>
+                        ) : msg.text}
                       </div>
                     </div>
                   ))
