@@ -366,6 +366,7 @@ class InterviewSessionService:
         session_id: int,
         question_id: int,
         duration_seconds: float | None,
+        client_transcript: str | None = None,
         audio: UploadFile | None = None,
         video: UploadFile | None = None,
     ) -> tuple[dict[str, Any], bytes | None, str, str]:
@@ -400,6 +401,7 @@ class InterviewSessionService:
             )
 
         order = await self._next_answer_order(session.id)
+        initial_transcript = str(client_transcript or "").strip() or None
         answer = InterviewAnswer(
             session_id=session.id,
             question_id=question.id,
@@ -409,7 +411,8 @@ class InterviewSessionService:
             mime_type=mime_type,
             duration_seconds=duration_seconds,
             size_bytes=size_bytes,
-            transcription_status="pending" if audio_bytes else "skipped",
+            transcript=initial_transcript,
+            transcription_status="processing" if audio_bytes else ("completed" if initial_transcript else "skipped"),
         )
         session.status = STATUS_TRANSCRIBING if audio_bytes else STATUS_IN_PROGRESS
         self.db_session.add(answer)
@@ -829,6 +832,7 @@ async def transcribe_interview_answer_task(
     media_bytes: bytes | None,
     file_name: str,
     content_type: str,
+    client_transcript: str | None = None,
 ) -> None:
     if not media_bytes:
         return
@@ -840,12 +844,19 @@ async def transcribe_interview_answer_task(
             session.add(answer)
             await session.commit()
             transcript = await service.ai_provider.transcribe(media_bytes, file_name, content_type)
+            if not str(transcript or "").strip() and client_transcript:
+                transcript = client_transcript
             answer.transcript = transcript
             answer.transcription_status = "completed"
             answer.transcription_error = None
         except Exception as exc:
-            answer.transcription_status = "failed"
-            answer.transcription_error = str(getattr(exc, "message", str(exc)))
+            if client_transcript:
+                answer.transcript = client_transcript
+                answer.transcription_status = "completed"
+                answer.transcription_error = None
+            else:
+                answer.transcription_status = "failed"
+                answer.transcription_error = str(getattr(exc, "message", str(exc)))
         session.add(answer)
         await session.commit()
 

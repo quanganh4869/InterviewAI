@@ -211,7 +211,14 @@ class OpenAIInterviewAiProvider(InterviewAiProvider):
                 headers=self._headers(),
                 data={
                     "model": self.transcribe_model,
-                    "language": "vi"
+                    "language": "vi",
+                    "temperature": "0",
+                    "prompt": (
+                        "Đây là câu trả lời trong một buổi phỏng vấn tuyển dụng. "
+                        "Hãy chép lại chính xác lời ứng viên nói bằng tiếng Việt có dấu; "
+                        "giữ nguyên các thuật ngữ tiếng Anh, tên công nghệ, framework, thư viện, "
+                        "tên riêng và số liệu. Không thêm nhận xét, không tóm tắt, không bịa nội dung."
+                    ),
                 },
                 files={"file": (file_name, media, content_type or "application/octet-stream")},
             )
@@ -470,7 +477,12 @@ class GeminiInterviewAiProvider(InterviewAiProvider):
         if "audio/" not in mime and "video/" not in mime:
             mime = "audio/webm"
             
-        user_prompt = "Hãy chuyển giọng nói trong đoạn ghi âm này thành văn bản Tiếng Việt chính xác, không thêm thắt bình luận hay giải thích gì khác."
+        user_prompt = (
+            "Hãy chuyển giọng nói trong đoạn ghi âm này thành transcript tiếng Việt chính xác. "
+            "Bối cảnh là câu trả lời phỏng vấn tuyển dụng. Giữ nguyên thuật ngữ tiếng Anh, tên công nghệ, "
+            "framework, thư viện, tên riêng và số liệu. Không tóm tắt, không nhận xét, không thêm nội dung. "
+            "Nếu đoạn ghi âm không có lời nói rõ ràng, chỉ trả về chuỗi rỗng."
+        )
         
         models_to_try = [self.chat_model]
         for fallback in ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-2.0-flash-lite"]:
@@ -756,4 +768,3 @@ class ResilientInterviewAiProvider(InterviewAiProvider):
             except Exception as exc:
                 log.error("gemini_interview_comparison_failed error=%s", str(exc))
         return await self.mock.compare_sessions(job_title, jd_text, sessions_data)
-

@@ -124,6 +124,38 @@ const segmentText = (text) => {
     .filter(s => s.text.length > 0);
 };
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getOptimizedAudioConstraints = () => ({
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: 1,
+  sampleRate: 48000,
+  sampleSize: 16,
+});
+
+const getInterviewMediaConstraints = (withVideo = true) => ({
+  audio: getOptimizedAudioConstraints(),
+  video: withVideo
+    ? {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 24, max: 30 },
+      }
+    : false,
+});
+
+function TypingDots() {
+  return (
+    <span className="interview-typing-wrap" aria-label="Đang chuyển giọng nói sang văn bản">
+      <span className="interview-typing-dot" />
+      <span className="interview-typing-dot" />
+      <span className="interview-typing-dot" />
+    </span>
+  );
+}
+
 export default function InterviewSessionRoomPage() {
   const { sessionId } = useParams();
   const query = useQuery();
@@ -140,6 +172,10 @@ export default function InterviewSessionRoomPage() {
   const [mediaMode, setMediaMode] = useState("audio+video");
   const recorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
+  const audioRecorderRef = useRef(null);
+  const videoRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const videoChunksRef = useRef([]);
   const isFinishingRef = useRef(false);
 
   const [isCameraMuted, setIsCameraMuted] = useState(false);
@@ -246,6 +282,7 @@ export default function InterviewSessionRoomPage() {
   const [mediaError, setMediaError] = useState("");
   const [sttStatus, setSttStatus] = useState("");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  const [transcribingQuestionId, setTranscribingQuestionId] = useState(null);
 
   const [selectedVoice, setSelectedVoice] = useState("mc_nu");
   const enVoiceRef = useRef(null);
@@ -253,6 +290,8 @@ export default function InterviewSessionRoomPage() {
   const serverAudioRef = useRef(null);
   const ttsQueueRef = useRef([]);
   const currentTtsIndexRef = useRef(0);
+  const keyboardSoundTimerRef = useRef(null);
+  const keyboardAudioContextRef = useRef(null);
 
   const getVoices = useCallback(() => {
     if (typeof window === "undefined" || !window.speechSynthesis) return [];
@@ -318,6 +357,57 @@ export default function InterviewSessionRoomPage() {
     currentTtsIndexRef.current = 0;
     setIsAiSpeaking(false);
   };
+
+  const playKeyboardClick = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = keyboardAudioContextRef.current || new AudioContextClass();
+      keyboardAudioContextRef.current = audioCtx;
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume().catch(() => null);
+      }
+
+      const oscillator = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      oscillator.type = "square";
+      oscillator.frequency.value = 1100 + Math.random() * 450;
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.035, audioCtx.currentTime + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.035);
+      oscillator.connect(gain);
+      gain.connect(audioCtx.destination);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.04);
+    } catch (error) {
+      console.warn("Keyboard click sound failed:", error);
+    }
+  }, []);
+
+  const startKeyboardSound = useCallback(() => {
+    if (keyboardSoundTimerRef.current) return;
+    playKeyboardClick();
+    keyboardSoundTimerRef.current = window.setInterval(() => {
+      playKeyboardClick();
+    }, 120);
+  }, [playKeyboardClick]);
+
+  const stopKeyboardSound = useCallback(() => {
+    if (keyboardSoundTimerRef.current) {
+      window.clearInterval(keyboardSoundTimerRef.current);
+      keyboardSoundTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (transcribingQuestionId) {
+      startKeyboardSound();
+    } else {
+      stopKeyboardSound();
+    }
+    return () => stopKeyboardSound();
+  }, [startKeyboardSound, stopKeyboardSound, transcribingQuestionId]);
 
   const speakNextChunk = () => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
@@ -418,8 +508,12 @@ export default function InterviewSessionRoomPage() {
   useEffect(() => {
     return () => {
       stopSpeaking();
+      stopKeyboardSound();
+      if (keyboardAudioContextRef.current?.state !== "closed") {
+        keyboardAudioContextRef.current?.close?.().catch(() => null);
+      }
     };
-  }, []);
+  }, [stopKeyboardSound]);
 
   // Automatic Text-to-Speech logic
   useEffect(() => {
@@ -518,13 +612,13 @@ export default function InterviewSessionRoomPage() {
         setLoadingProgress(85);
 
         try {
-          const nextStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          const nextStream = await navigator.mediaDevices.getUserMedia(getInterviewMediaConstraints(true));
           setStream(nextStream);
           setMediaMode("audio+video");
           setMediaError("");
         } catch (e) {
           try {
-            const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            const audioOnly = await navigator.mediaDevices.getUserMedia(getInterviewMediaConstraints(false));
             setStream(audioOnly);
             setMediaMode("audio-only");
             setMediaError("");
@@ -575,14 +669,14 @@ export default function InterviewSessionRoomPage() {
   const ensureMedia = async () => {
     if (stream) return stream;
     try {
-      const nextStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      const nextStream = await navigator.mediaDevices.getUserMedia(getInterviewMediaConstraints(true));
       setStream(nextStream);
       setMediaMode("audio+video");
       setMediaError("");
       return nextStream;
     } catch {
       try {
-        const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const audioOnly = await navigator.mediaDevices.getUserMedia(getInterviewMediaConstraints(false));
         setStream(audioOnly);
         setMediaMode("audio-only");
         setMediaError("");
@@ -596,6 +690,7 @@ export default function InterviewSessionRoomPage() {
 
   const startRecording = async () => {
     try {
+      setError("");
       stopSpeaking();
       const activeStream = await ensureMedia();
       // Apply current mute states on the fresh active stream tracks
@@ -606,19 +701,42 @@ export default function InterviewSessionRoomPage() {
         track.enabled = !isCameraMuted;
       });
       recordedChunksRef.current = [];
+      audioChunksRef.current = [];
+      videoChunksRef.current = [];
 
       const hasVideo = activeStream.getVideoTracks().length > 0;
-      const mimeType = getSupportedMimeType(hasVideo ? "video" : "audio");
-      const options = mimeType ? { mimeType } : undefined;
+      const audioMimeType = getSupportedMimeType("audio");
+      const videoMimeType = getSupportedMimeType("video");
+      const audioTracks = activeStream.getAudioTracks();
+      if (!audioTracks.length || isMicMuted) {
+        throw new Error("Microphone đang tắt hoặc chưa có audio track.");
+      }
 
-      console.log(`Starting single MediaRecorder. Has video: ${hasVideo}. MIME type: ${mimeType}`);
-      const recorder = new MediaRecorder(activeStream, options);
-      recorder.ondataavailable = (event) => {
-        if (event.data?.size) recordedChunksRef.current.push(event.data);
+      const audioStream = new MediaStream(audioTracks);
+      const audioRecorder = new MediaRecorder(audioStream, audioMimeType ? { mimeType: audioMimeType } : undefined);
+      audioRecorder.ondataavailable = (event) => {
+        if (event.data?.size) audioChunksRef.current.push(event.data);
       };
-      
-      recorderRef.current = recorder;
-      recorder.start();
+      audioRecorderRef.current = audioRecorder;
+
+      let videoRecorder = null;
+      if (hasVideo) {
+        videoRecorder = new MediaRecorder(activeStream, videoMimeType ? { mimeType: videoMimeType } : undefined);
+        videoRecorder.ondataavailable = (event) => {
+          if (event.data?.size) videoChunksRef.current.push(event.data);
+        };
+        videoRecorderRef.current = videoRecorder;
+        recorderRef.current = videoRecorder;
+      } else {
+        videoRecorderRef.current = null;
+        recorderRef.current = audioRecorder;
+      }
+
+      console.log(`Starting interview recorders. Has video: ${hasVideo}. Audio MIME: ${audioMimeType}. Video MIME: ${videoMimeType}`);
+      audioRecorder.start(1000);
+      if (videoRecorder) {
+        videoRecorder.start(1000);
+      }
 
       setRecordingStartedAt(Date.now());
       setIsRecording(true);
@@ -637,6 +755,7 @@ export default function InterviewSessionRoomPage() {
           const rec = new SpeechRecognition();
           rec.continuous = true;
           rec.interimResults = true;
+          rec.maxAlternatives = 3;
 
           rec.onstart = () => {
             console.log("[STT] SpeechRecognition active. Listening for voice input...");
@@ -756,10 +875,34 @@ export default function InterviewSessionRoomPage() {
     }
   };
 
+  const waitForAnswerTranscript = async ({ questionId, answerId }) => {
+    let latestSession = null;
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      latestSession = await fetchInterviewReport({ sessionId: session.id });
+      const answer = (latestSession?.answers || []).find((item) =>
+        answerId ? item.id === answerId : item.question_id === questionId
+      );
+      if (
+        answer?.transcript ||
+        answer?.transcription_status === "completed" ||
+        answer?.transcription_status === "failed" ||
+        answer?.transcription_status === "skipped"
+      ) {
+        return latestSession;
+      }
+      await sleep(attempt < 8 ? 900 : 1500);
+    }
+    return latestSession || fetchInterviewReport({ sessionId: session.id });
+  };
+
   const stopAndUpload = async () => {
     if (!currentQuestion) return;
+    setError("");
     setIsUploadingAnswer(true);
+    setTranscribingQuestionId(currentQuestion.id);
+    setSttStatus("Đang chuyển giọng nói sang văn bản...");
     setUploadProgress(0);
+    const clientTranscript = realtimeText?.trim() || "";
     
     // Save the final real-time text to localTranscripts map before clearing it
     if (realtimeText) {
@@ -771,32 +914,55 @@ export default function InterviewSessionRoomPage() {
     
     stopSpeechRecognition();
     try {
-      await stopRecorder(recorderRef.current);
+      await Promise.all([
+        stopRecorder(audioRecorderRef.current),
+        stopRecorder(videoRecorderRef.current),
+      ]);
       setIsRecording(false);
 
       const hasVideo = stream?.getVideoTracks().length > 0;
-      const fallbackMime = hasVideo ? "video/webm" : "audio/webm";
-      const recordedBlob = buildBlob(recordedChunksRef.current, fallbackMime);
+      const audioBlob = buildBlob(audioChunksRef.current, "audio/webm");
+      const videoBlob = hasVideo ? buildBlob(videoChunksRef.current, "video/webm") : null;
+      if (!audioBlob || audioBlob.size <= 0) {
+        throw new Error("Không ghi được âm thanh. Vui lòng kiểm tra microphone và thử lại.");
+      }
       const durationSeconds = recordingStartedAt ? (Date.now() - recordingStartedAt) / 1000 : null;
 
-      await uploadInterviewAnswer({
+      const uploadedAnswer = await uploadInterviewAnswer({
         sessionId: session.id,
         questionId: currentQuestion.id,
-        audioBlob: recordedBlob,
-        videoBlob: hasVideo ? recordedBlob : null,
+        audioBlob,
+        videoBlob,
         durationSeconds,
+        clientTranscript,
         onProgress: (progress) => {
           setUploadProgress(progress);
         },
       });
-      const refreshed = await fetchInterviewReport({ sessionId: session.id });
+      setUploadProgress(100);
+      const refreshed = await waitForAnswerTranscript({
+        questionId: currentQuestion.id,
+        answerId: uploadedAnswer?.id,
+      });
       setSession(refreshed);
       setRealtimeText("");
+      const readyAnswer = (refreshed?.answers || []).find((item) =>
+        uploadedAnswer?.id ? item.id === uploadedAnswer.id : item.question_id === currentQuestion.id
+      );
+      const isTranscriptReady =
+        readyAnswer?.transcript ||
+        ["completed", "failed", "skipped"].includes(readyAnswer?.transcription_status);
+      if (!isTranscriptReady) {
+        setError("Hệ thống vẫn đang chuyển giọng nói sang văn bản. Vui lòng chờ thêm một chút trước khi sang câu tiếp theo.");
+        return;
+      }
+      await sleep(650);
       if (currentIndex < questions.length - 1) setCurrentIndex((value) => value + 1);
     } catch (err) {
       console.error("Upload error:", err);
       setError(err?.message || "Không thể tải câu trả lời lên hệ thống.");
     } finally {
+      setTranscribingQuestionId(null);
       setIsUploadingAnswer(false);
     }
   };
@@ -828,32 +994,44 @@ export default function InterviewSessionRoomPage() {
         const ans = (session?.answers || []).find((a) => a.question_id === q.id);
         if (ans) {
           let displayText = ans.transcript;
+          let isTyping = false;
           if (!displayText) {
-            if (ans.transcription_status === "processing") {
+            if (["pending", "processing"].includes(ans.transcription_status)) {
               displayText = "...";
+              isTyping = true;
             } else if (ans.transcription_status === "failed") {
               displayText = "Không thể chuyển đổi âm thanh.";
             } else {
               displayText = "...";
+              isTyping = true;
             }
           }
           msgs.push({
             id: `a-${ans.id}`,
             sender: "candidate",
             text: displayText,
+            isTyping,
+          });
+        } else if (index === currentIndex && transcribingQuestionId === q.id) {
+          msgs.push({
+            id: "current-transcribing",
+            sender: "candidate",
+            text: "Đang chuyển giọng nói sang văn bản",
+            isTyping: true,
           });
         } else if (index === currentIndex && isRecording) {
           msgs.push({
             id: "current-recording",
             sender: "candidate",
-            text: "...",
+            text: realtimeText || "...",
             isLive: true,
+            isTyping: !realtimeText,
           });
         }
       }
     });
     return msgs;
-  }, [questions, currentIndex, session?.answers, isRecording, realtimeText, sttStatus, localTranscripts]);
+  }, [questions, currentIndex, session?.answers, isRecording, realtimeText, sttStatus, localTranscripts, transcribingQuestionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1211,7 +1389,7 @@ export default function InterviewSessionRoomPage() {
                           } else {
                             // Request new stream with video to turn camera hardware back on
                             try {
-                              const newMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                              const newMediaStream = await navigator.mediaDevices.getUserMedia(getInterviewMediaConstraints(true));
                               // Stop previous stream tracks
                               stream.getTracks().forEach(t => t.stop());
                               // Apply current microphone mute state to new audio tracks
@@ -1363,7 +1541,14 @@ export default function InterviewSessionRoomPage() {
                             : "bg-[var(--color-primary-soft)] border border-[var(--color-primary-soft)] text-[var(--color-text)] rounded-tr-[4px]"
                         }`}
                       >
-                        {msg.text}
+                        {msg.isTyping ? (
+                          <span className="inline-flex items-center gap-2">
+                            {msg.text && msg.text !== "..." ? <span>{msg.text}</span> : null}
+                            <TypingDots />
+                          </span>
+                        ) : (
+                          msg.text
+                        )}
                       </div>
                     </div>
                   ))

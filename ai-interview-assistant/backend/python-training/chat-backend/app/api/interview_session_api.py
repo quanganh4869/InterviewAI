@@ -176,6 +176,7 @@ async def upload_interview_answer(
     service: InterviewSessionServiceDep,
     question_id: Annotated[int, Form()],
     duration_seconds: Annotated[float | None, Form()] = None,
+    client_transcript: Annotated[str | None, Form()] = None,
     audio: Annotated[UploadFile | None, File()] = None,
     video: Annotated[UploadFile | None, File()] = None,
 ):
@@ -185,6 +186,7 @@ async def upload_interview_answer(
             session_id=session_id,
             question_id=question_id,
             duration_seconds=duration_seconds,
+            client_transcript=client_transcript,
             audio=audio,
             video=video,
         )
@@ -195,6 +197,7 @@ async def upload_interview_answer(
                 media_bytes,
                 file_name,
                 content_type,
+                client_transcript,
             )
         return ApiResponse.success(
             data=InterviewAnswerResponse(**result).model_dump(mode="json"),

@@ -52,11 +52,13 @@ export async function uploadInterviewAnswer({
   audioBlob,
   videoBlob,
   durationSeconds,
+  clientTranscript,
   onProgress,
 }) {
   const formData = new FormData();
   formData.append("question_id", String(questionId));
   if (durationSeconds != null) formData.append("duration_seconds", String(durationSeconds));
+  if (clientTranscript?.trim()) formData.append("client_transcript", clientTranscript.trim());
   
   const getExtension = (blob, defaultExt) => {
     if (!blob) return defaultExt;
@@ -114,4 +116,3 @@ export async function compareInterviewSessions({ sessionIds }) {
     body: JSON.stringify({ session_ids: sessionIds }),
   });
 }
-
