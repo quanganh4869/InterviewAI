@@ -66,6 +66,123 @@
   color: var(--color-primary);
 }
 
+.icon-btn.active {
+  background-color: var(--color-primary-soft);
+  border-color: rgba(37, 99, 235, 0.36);
+  color: var(--color-primary);
+}
+
+.notification-dropdown {
+  position: relative;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  border: 2px solid var(--color-surface);
+}
+
+.notification-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: min(360px, calc(100vw - 2rem));
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 0.65rem;
+  display: none;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.notification-menu.is-open {
+  display: flex;
+}
+
+.notification-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.2rem 0.25rem 0.6rem;
+  color: var(--color-text);
+}
+
+.notification-menu-head strong {
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.notification-menu-head button {
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.notification-list {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  padding: 0.75rem;
+  text-align: left;
+  transition: background-color var(--transition), border-color var(--transition);
+}
+
+.notification-item:hover,
+.notification-item.unread {
+  background-color: var(--color-primary-soft);
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+.notification-item span {
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.notification-item small {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.notification-empty {
+  padding: 1.5rem 0.75rem;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .user-dropdown {
   position: relative;
 }

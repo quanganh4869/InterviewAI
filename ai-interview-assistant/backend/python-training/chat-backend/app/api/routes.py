@@ -6,6 +6,7 @@ from api.health_check import router as health_check_router
 from api.hr_email_api import router as hr_email_router
 from api.interview_session_api import router as interview_session_router
 from api.job_posting_api import router as job_posting_router
+from api.notification_api import router as notification_router
 from api.oauth_api import router as oauth_router
 from api.user_api import router as user_router
 from core.api_version_router import VersionedAPIRouter
@@ -25,6 +26,7 @@ router.include_router(
 router.include_router(document_router, prefix="/document", tags=["Document"])
 router.include_router(hr_email_router, prefix="/hr", tags=["HR Email"])
 router.include_router(job_posting_router, prefix="/job-postings", tags=["Job Postings"])
+router.include_router(notification_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(
     interview_session_router,
     prefix="/interview-sessions",

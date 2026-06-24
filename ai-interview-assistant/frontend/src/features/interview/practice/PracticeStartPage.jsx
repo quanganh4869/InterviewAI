@@ -197,19 +197,7 @@ export default function PracticeStartPage() {
                 {isLoadingJob ? "Đang tải JD..." : linkedJob?.title || form.target_role || "JD chưa sẵn sàng"}
               </div>
             </label>
-            <label className="grid gap-2 text-sm font-bold">
-              Trọng tâm luyện tập
-              <select
-                className="input-field"
-                value={form.focus}
-                onChange={(event) => update("focus", event.target.value)}
-              >
-                <option value="General interview">Phỏng vấn tổng quát</option>
-                <option value="Technical interview">Phỏng vấn kỹ thuật</option>
-                <option value="Behavioral interview">Phỏng vấn hành vi</option>
-                <option value="HR screening">HR screening</option>
-              </select>
-            </label>
+
             {isLinkedToJob ? (
               <div className="hidden">
                 <span className="font-bold text-[var(--color-text)]">Level theo JD</span>

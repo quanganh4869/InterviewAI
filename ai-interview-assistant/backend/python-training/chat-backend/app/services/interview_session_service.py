@@ -21,6 +21,7 @@ from services.document_service import DocumentService
 from services.file_storage_service import get_storage_service
 from services.interview_ai_service import ResilientInterviewAiProvider
 from services.job_posting_service import STATUS_PUBLISHED, JobPostingService
+from services.notification_service import NotificationService
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -386,7 +387,7 @@ class InterviewSessionService:
             await audio.seek(0)
             audio_key = await self.storage_service.save_file(
                 file=audio,
-                sub_dir=self._recording_prefix(session.id),
+                sub_dir=self._recording_prefix(session),
             )
         if video is not None:
             video_bytes = await video.read()
@@ -395,7 +396,7 @@ class InterviewSessionService:
             await video.seek(0)
             video_key = await self.storage_service.save_file(
                 file=video,
-                sub_dir=self._recording_prefix(session.id),
+                sub_dir=self._recording_prefix(session),
             )
 
         order = await self._next_answer_order(session.id)
@@ -427,6 +428,7 @@ class InterviewSessionService:
         session = await self._get_accessible_session(user=user, session_id=session_id)
         session.status = STATUS_EVALUATING
         self.db_session.add(session)
+        await self._notify_hr_official_video_ready(session=session, actor_user_id=user.id)
         await self.db_session.commit()
         await self.db_session.refresh(session)
         return await self.serialize_session(session)
@@ -721,8 +723,43 @@ class InterviewSessionService:
         return int(value or 0) + 1
 
     @staticmethod
-    def _recording_prefix(session_id: int) -> str:
-        return f"{configuration.INTERVIEW_RECORDING_PREFIX.strip('/')}/{session_id}"
+    def _recording_prefix(session: InterviewSession) -> str:
+        base_prefix = configuration.INTERVIEW_RECORDING_PREFIX.strip("/") or "interviews"
+        session_type = session.session_type or SESSION_TYPE_OFFICIAL
+        type_prefix = SESSION_TYPE_PRACTICE if session_type == SESSION_TYPE_PRACTICE else SESSION_TYPE_OFFICIAL
+        return f"{base_prefix}/{type_prefix}/{session.id}"
+
+    async def _notify_hr_official_video_ready(
+        self,
+        *,
+        session: InterviewSession,
+        actor_user_id: int,
+    ) -> None:
+        if session.session_type != SESSION_TYPE_OFFICIAL or not session.job_posting_id:
+            return
+
+        posting = await self._get_posting(session.job_posting_id)
+        answers = await self._get_answers(session.id)
+        video_count = sum(1 for answer in answers if answer.video_storage_key)
+        if video_count <= 0:
+            return
+
+        service = NotificationService(self.db_session)
+        await service.create_notification(
+            recipient_user_id=posting.hr_user_id,
+            actor_user_id=actor_user_id,
+            type_="official_interview_video_ready",
+            title="Có video phỏng vấn chính thức mới",
+            body=f"Ứng viên đã hoàn tất phỏng vấn chính thức cho JD {posting.title}.",
+            link_url=f"/phong-van/{session.id}/chi-tiet",
+            metadata={
+                "session_id": session.id,
+                "job_posting_id": posting.id,
+                "job_title": posting.title,
+                "video_count": video_count,
+            },
+            dedupe_session_id=session.id,
+        )
 
     @staticmethod
     def _posting_text(posting: JobPosting) -> str:
