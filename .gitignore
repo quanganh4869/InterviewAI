@@ -51,3 +51,10 @@ yarn-error.log*
 
 # GitHub Workflows
 .github/workflows/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
