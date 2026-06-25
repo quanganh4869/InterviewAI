@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Button,
   DataTable,
   DataTableState,
   DataToolbar,
@@ -9,26 +10,19 @@ import {
   Pill,
   SearchBar,
   SectionCard,
-  Button,
 } from "../../../components/ui";
 import { Sparkles } from "lucide-react";
 
-
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 6;
 
 const HISTORY_COLUMNS = [
   { key: "select", label: "" },
   { key: "session", label: "Ngày & mã" },
   { key: "role", label: "Vị trí" },
-  { key: "type", label: "Loại phiên" },
   { key: "score", label: "Điểm" },
   { key: "result", label: "Trạng thái" },
   { key: "action", label: "Thao tác", className: "text-right" },
 ];
-
-function displaySessionType(type) {
-  return type === "practice" ? "Luyện tập" : "Chính thức";
-}
 
 function displayStatus(status) {
   const labels = {
@@ -44,47 +38,131 @@ function displayStatus(status) {
   return labels[status] || status || "Chưa rõ";
 }
 
+function toTimestamp(value) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+}
+
+function mapSession(session) {
+  const type = session.session_type || "official";
+  return {
+    id: `INT-${session.id}`,
+    date: session.created_at ? new Date(session.created_at).toLocaleString("vi-VN") : "Chưa có",
+    role: session.job_posting?.title || session.practice_config?.target_role || (type === "practice" ? "Luyện tập tự do" : "Phiên phỏng vấn"),
+    type,
+    score: Math.round(session.evaluation?.overall_score || 0),
+    status: session.evaluation?.evaluation?.hiring_recommendation || displayStatus(session.status),
+    createdAtTs: toTimestamp(session.created_at),
+    raw: session,
+  };
+}
+
+function HistorySection({
+  title,
+  subtitle,
+  rows,
+  emptyTitle,
+  selectedSessionIds,
+  onToggleSelect,
+}) {
+  const navigate = useNavigate();
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const from = rows.length ? (safePage - 1) * PAGE_SIZE + 1 : 0;
+  const to = Math.min(safePage * PAGE_SIZE, rows.length);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [rows.length]);
+
+  return (
+    <SectionCard
+      title={title}
+      subtitle={subtitle}
+      action={<Pill tone="default">{rows.length} phiên</Pill>}
+    >
+      <DataTable columns={HISTORY_COLUMNS}>
+        {pageRows.length ? (
+          pageRows.map((row) => (
+            <tr key={row.id}>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={selectedSessionIds.includes(row.raw.id)}
+                  onChange={() => onToggleSelect(row.raw.id)}
+                  disabled={row.raw.status !== "completed"}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-55 disabled:cursor-not-allowed"
+                  aria-label="Chọn phiên so sánh"
+                />
+              </td>
+              <td>
+                <div className="font-bold" style={{ color: "var(--text)" }}>{row.id}</div>
+                <div className="text-xs" style={{ color: "var(--text-soft)" }}>{row.date}</div>
+              </td>
+              <td className="font-semibold" style={{ color: "var(--text)" }}>{row.role}</td>
+              <td className="font-bold text-blue-600">{row.score}/100</td>
+              <td style={{ color: "var(--text-soft)" }}>{row.status}</td>
+              <td className="text-right">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(row.type === "practice" ? `/luyen-tap/${row.raw.id}/chi-tiet` : `/phong-van/${row.raw.id}/chi-tiet`)
+                  }
+                  className="font-bold text-blue-600 hover:underline"
+                >
+                  Chi tiết
+                </button>
+              </td>
+            </tr>
+          ))
+        ) : (
+          <DataTableState colSpan={HISTORY_COLUMNS.length} className="p-4">
+            <EmptyState title={emptyTitle} />
+          </DataTableState>
+        )}
+      </DataTable>
+
+      {rows.length ? (
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border)] pt-4">
+          <p className="text-xs font-medium" style={{ color: "var(--text-soft)" }}>
+            Hiển thị {from} - {to} của {rows.length} phiên
+          </p>
+          <Pagination page={safePage} totalPages={totalPages} onPageChange={setPage} />
+        </div>
+      ) : null}
+    </SectionCard>
+  );
+}
+
 export function InterviewHistoryScreen({ realSessions = [] }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
   const [selectedSessionIds, setSelectedSessionIds] = useState([]);
-  const [page, setPage] = useState(1);
 
   const toggleSelectSession = (id) => {
     setSelectedSessionIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
-
-  const sourceRows = useMemo(
+  const rows = useMemo(
     () =>
-      realSessions.map((session) => ({
-        id: `INT-${session.id}`,
-        date: session.created_at ? new Date(session.created_at).toLocaleString("vi-VN") : "Chưa có",
-        role: session.job_posting?.title || session.practice_config?.target_role || "Phiên phỏng vấn",
-        type: session.session_type || "official",
-        score: Math.round(session.evaluation?.overall_score || 0),
-        status: session.evaluation?.evaluation?.hiring_recommendation || displayStatus(session.status),
-        raw: session,
-      })),
+      realSessions
+        .map(mapSession)
+        .sort((a, b) => b.createdAtTs - a.createdAtTs),
     [realSessions],
   );
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return sourceRows.filter((row) => {
-      const matchesQuery = !q || `${row.id} ${row.role}`.toLowerCase().includes(q);
-      const matchesType = typeFilter === "all" || row.type === typeFilter;
-      return matchesQuery && matchesType;
-    });
-  }, [query, typeFilter, sourceRows]);
+    if (!q) return rows;
+    return rows.filter((row) => `${row.id} ${row.role} ${row.status}`.toLowerCase().includes(q));
+  }, [query, rows]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
-  const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const from = filteredRows.length ? (page - 1) * PAGE_SIZE + 1 : 0;
-  const to = Math.min(page * PAGE_SIZE, filteredRows.length);
+  const officialRows = filteredRows.filter((row) => row.type !== "practice");
+  const practiceRows = filteredRows.filter((row) => row.type === "practice");
 
   return (
     <div className="space-y-6">
@@ -92,10 +170,10 @@ export function InterviewHistoryScreen({ realSessions = [] }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-2xl font-extrabold" style={{ color: "var(--text)" }}>
-              Lịch sử phỏng vấn
+              Kết quả
             </h2>
             <p className="text-sm" style={{ color: "var(--text-soft)" }}>
-              Dữ liệu được đọc từ backend, gồm cả luyện tập và phỏng vấn chính thức.
+              Lịch sử phỏng vấn chính thức và lịch sử luyện tập được tách riêng, sắp xếp mới nhất trước.
             </p>
           </div>
           <Button onClick={() => navigate("/luyen-tap/tao-moi")}>
@@ -107,80 +185,30 @@ export function InterviewHistoryScreen({ realSessions = [] }) {
       <DataToolbar>
         <SearchBar
           value={query}
-          placeholder="Tìm vị trí hoặc mã phiên"
+          placeholder="Tìm vị trí, mã phiên hoặc trạng thái"
           className="md:max-w-md"
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setPage(1);
-          }}
+          onChange={(event) => setQuery(event.target.value)}
         />
-        <select
-          className="ds-input w-full px-3 md:w-48"
-          value={typeFilter}
-          onChange={(event) => {
-            setTypeFilter(event.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="all">Tất cả</option>
-          <option value="official">Chính thức</option>
-          <option value="practice">Luyện tập</option>
-        </select>
       </DataToolbar>
 
-      <SectionCard title="Danh sách phiên">
-        <DataTable columns={HISTORY_COLUMNS}>
-          {pageRows.length ? (
-            pageRows.map((row) => (
-              <tr key={row.id}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={selectedSessionIds.includes(row.raw.id)}
-                    onChange={() => toggleSelectSession(row.raw.id)}
-                    disabled={row.raw.status !== "completed"}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-55 disabled:cursor-not-allowed"
-                    aria-label="Chọn phiên so sánh"
-                  />
-                </td>
-                <td>
-                  <div className="font-bold" style={{ color: "var(--text)" }}>{row.id}</div>
-                  <div className="text-xs" style={{ color: "var(--text-soft)" }}>{row.date}</div>
-                </td>
-                <td className="font-semibold" style={{ color: "var(--text)" }}>{row.role}</td>
-                <td><Pill tone="default">{displaySessionType(row.type)}</Pill></td>
-                <td className="font-bold text-blue-600">{row.score}/100</td>
-                <td style={{ color: "var(--text-soft)" }}>{row.status}</td>
-                <td className="text-right">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(row.type === "practice" ? `/luyen-tap/${row.raw.id}/chi-tiet` : `/phong-van/${row.raw.id}/chi-tiet`)
-                    }
-                    className="font-bold text-blue-600 hover:underline"
-                  >
-                    Chi tiết
-                  </button>
-                </td>
-              </tr>
-            ))
+      <HistorySection
+        title="Lịch sử phỏng vấn chính thức"
+        subtitle="Các phiên phỏng vấn ứng tuyển theo JD, kết quả được HR xem xét."
+        rows={officialRows}
+        emptyTitle="Chưa có lịch sử phỏng vấn chính thức"
+        selectedSessionIds={selectedSessionIds}
+        onToggleSelect={toggleSelectSession}
+      />
 
-          ) : (
-            <DataTableState colSpan={HISTORY_COLUMNS.length} className="p-4">
-              <EmptyState title="Không có phiên nào" />
-            </DataTableState>
-          )}
-        </DataTable>
+      <HistorySection
+        title="Lịch sử luyện tập"
+        subtitle="Các phiên luyện tập tự do hoặc luyện theo JD để cải thiện kỹ năng trả lời."
+        rows={practiceRows}
+        emptyTitle="Chưa có lịch sử luyện tập"
+        selectedSessionIds={selectedSessionIds}
+        onToggleSelect={toggleSelectSession}
+      />
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border)] pt-4">
-          <p className="text-xs font-medium" style={{ color: "var(--text-soft)" }}>
-            Hiển thị {from} - {to} của {filteredRows.length} phiên
-          </p>
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-        </div>
-      </SectionCard>
-
-      {/* Floating comparative toolbar */}
       {selectedSessionIds.length >= 2 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl border border-slate-800 flex items-center gap-6 animate-in slide-in-from-bottom-5 duration-300">
           <span className="text-sm font-bold">Đã chọn {selectedSessionIds.length} phiên</span>
@@ -205,6 +233,5 @@ export function InterviewHistoryScreen({ realSessions = [] }) {
         </div>
       )}
     </div>
-
   );
 }

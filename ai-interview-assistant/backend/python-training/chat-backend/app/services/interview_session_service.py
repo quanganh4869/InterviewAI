@@ -442,10 +442,12 @@ class InterviewSessionService:
             .where(
                 InterviewSession.deleted_at.is_(None),
                 InterviewSession.candidate_user_id == user.id,
-                InterviewSession.session_type == SESSION_TYPE_OFFICIAL,
             )
             .order_by(InterviewSession.created_at.desc())
         )
+        normalized_type = str(session_type or "").strip().lower()
+        if normalized_type in {SESSION_TYPE_OFFICIAL, SESSION_TYPE_PRACTICE}:
+            query = query.where(InterviewSession.session_type == normalized_type)
         result = await self.db_session.execute(query)
         items = [await self.serialize_session(item) for item in result.scalars().all()]
         return {"items": items, "total": len(items)}
