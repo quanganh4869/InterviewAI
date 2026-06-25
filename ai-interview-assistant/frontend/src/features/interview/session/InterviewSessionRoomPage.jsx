@@ -475,12 +475,17 @@ export default function InterviewSessionRoomPage() {
       currentTtsIndexRef.current = 0;
       speakNextChunk();
     } else {
-      setIsAiSpeaking(true);
       const host = window.location.hostname || "localhost";
       const url = `http://${host}:8001/api/v1/tts/synthesize?text=${encodeURIComponent(text)}&voice=${selectedVoice}`;
       const audio = new Audio(url);
       serverAudioRef.current = audio;
       
+      audio.onplaying = () => {
+        setIsAiSpeaking(true);
+      };
+      audio.onpause = () => {
+        setIsAiSpeaking(false);
+      };
       audio.onended = () => {
         setIsAiSpeaking(false);
         serverAudioRef.current = null;
@@ -1016,7 +1021,7 @@ export default function InterviewSessionRoomPage() {
           msgs.push({
             id: "current-transcribing",
             sender: "candidate",
-            text: "Đang chuyển giọng nói sang văn bản",
+            text: "...",
             isTyping: true,
           });
         } else if (index === currentIndex && isRecording) {
@@ -1543,7 +1548,6 @@ export default function InterviewSessionRoomPage() {
                       >
                         {msg.isTyping ? (
                           <span className="inline-flex items-center gap-2">
-                            {msg.text && msg.text !== "..." ? <span>{msg.text}</span> : null}
                             <TypingDots />
                           </span>
                         ) : (
