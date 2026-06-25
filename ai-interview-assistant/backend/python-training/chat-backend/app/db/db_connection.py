@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import ssl
 from typing import AsyncGenerator, Optional
+from uuid import uuid4
 
 from configuration.logger.config import log
 from configuration.settings import Settings
@@ -41,6 +42,7 @@ class Database:
         connect_args: dict[str, object] = {
             "statement_cache_size": 0,
             "prepared_statement_cache_size": 0,
+            "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4().hex}__",
         }
         normalized = str(ssl_mode or "").strip().lower()
         if not Database._is_ssl_enabled(normalized):
@@ -64,6 +66,7 @@ class Database:
             host=settings.POSTGRES_SERVER,
             port=settings.POSTGRES_PORT,
             database=settings.POSTGRES_DB,
+            query={"prepared_statement_cache_size": "0"},
         )
 
     @classmethod
@@ -136,6 +139,7 @@ class DatabaseReadOnly:
             host=settings.READ_ONLY_POSTGRES_SERVER,
             port=settings.READ_ONLY_POSTGRES_PORT,
             database=settings.READ_ONLY_POSTGRES_DB,
+            query={"prepared_statement_cache_size": "0"},
         )
 
     @classmethod
