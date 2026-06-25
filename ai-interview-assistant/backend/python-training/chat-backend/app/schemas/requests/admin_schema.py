@@ -1,5 +1,5 @@
 from core.enums.user_enum import UserRole
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AdminUpdateUserRoleRequest(BaseModel):
@@ -11,7 +11,7 @@ class AdminCreateUserRequest(BaseModel):
     email: str
     role: UserRole = UserRole.USER
     plan_id: int | None = None
-    additional_practice_slots: int = 0
+    additional_practice_slots: int = Field(default=0, ge=0)
 
 
 class AdminUpdateUserRequest(BaseModel):
@@ -19,7 +19,7 @@ class AdminUpdateUserRequest(BaseModel):
     plan_id: int | None = None
     name: str | None = None
     email: str | None = None
-    additional_practice_slots: int | None = None
+    additional_practice_slots: int | None = Field(default=None, ge=0)
 
 
 class AdminUpdatePlanRequest(BaseModel):

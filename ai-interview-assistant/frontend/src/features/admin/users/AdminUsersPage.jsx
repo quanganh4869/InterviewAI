@@ -29,6 +29,7 @@ const USER_COLUMNS = [
   { key: "email", label: "Email" },
   { key: "role", label: "Quyền" },
   { key: "plan", label: "Gói" },
+  { key: "quota", label: "Lượt hôm nay" },
   { key: "created", label: "Ngày tạo" },
 ];
 
@@ -37,6 +38,16 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Chưa có";
   return date.toLocaleString("vi-VN");
+}
+
+function formatSlotLimit(value) {
+  return value == null ? "Không giới hạn" : `${value} lượt`;
+}
+
+function formatSlotRatio(user) {
+  const used = Number(user?.practice_slots_used_today || 0);
+  const total = user?.practice_slots_total;
+  return total == null ? `${used}/∞` : `${used}/${total}`;
 }
 
 export default function AdminUsersPage() {
@@ -441,6 +452,19 @@ export default function AdminUsersPage() {
                         {targetUser.plan_name?.toUpperCase() || "FREE"}
                       </StatusBadge>
                     </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => handleViewUserDetails(targetUser)}
+                        className="text-left rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 hover:border-blue-300 hover:bg-blue-50/40 transition-colors"
+                        title="Xem/chỉnh số lượt"
+                      >
+                        <p className="text-sm font-black text-[var(--color-text)]">{formatSlotRatio(targetUser)}</p>
+                        <p className="text-[10px] font-bold uppercase text-[var(--color-text-muted)]">
+                          Còn {formatSlotLimit(targetUser.practice_slots_remaining_today)}
+                        </p>
+                      </button>
+                    </td>
                     <td className="text-[var(--color-text-muted)]">
                       {formatDate(targetUser.created_at)}
                     </td>
@@ -640,14 +664,42 @@ export default function AdminUsersPage() {
                       {/* Slots input */}
                       <div>
                         <label className="block">
-                          <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Lượt thêm/ngày</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={detailsForm.additional_practice_slots}
-                            onChange={(e) => setDetailsForm({ ...detailsForm, additional_practice_slots: parseInt(e.target.value) || 0 })}
-                            className="ds-input w-24 mt-1 px-3 py-2 text-sm font-bold"
-                          />
+                          <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Lượt cộng thêm/ngày</span>
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              className="h-9 w-9 rounded-lg border border-[var(--color-border)] font-black text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
+                              onClick={() =>
+                                setDetailsForm((current) => ({
+                                  ...current,
+                                  additional_practice_slots: Math.max(0, Number(current.additional_practice_slots || 0) - 1),
+                                }))
+                              }
+                              title="Trừ 1 lượt"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              value={detailsForm.additional_practice_slots}
+                              onChange={(e) => setDetailsForm({ ...detailsForm, additional_practice_slots: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                              className="ds-input w-24 px-3 py-2 text-sm font-bold text-center"
+                            />
+                            <button
+                              type="button"
+                              className="h-9 w-9 rounded-lg border border-[var(--color-border)] font-black text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
+                              onClick={() =>
+                                setDetailsForm((current) => ({
+                                  ...current,
+                                  additional_practice_slots: Number(current.additional_practice_slots || 0) + 1,
+                                }))
+                              }
+                              title="Thêm 1 lượt"
+                            >
+                              +
+                            </button>
+                          </div>
                         </label>
                       </div>
                     </>
@@ -680,9 +732,15 @@ export default function AdminUsersPage() {
                       {/* Joined Date & Slots */}
                       <div className="space-y-1">
                         <div>
-                          <p className="text-xs font-bold uppercase text-[var(--color-text-muted)]">Lượt thêm/ngày</p>
+                          <p className="text-xs font-bold uppercase text-[var(--color-text-muted)]">Lượt cộng thêm/ngày</p>
                           <p className="text-sm font-bold text-[var(--color-text)] mt-0.5">
                             +{selectedUserDetails.additional_practice_slots || 0} lượt
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase text-[var(--color-text-muted)]">Hôm nay</p>
+                          <p className="text-sm font-bold text-[var(--color-text)] mt-0.5">
+                            {formatSlotRatio(selectedUserDetails)} đã dùng
                           </p>
                         </div>
                         <div>
@@ -695,6 +753,39 @@ export default function AdminUsersPage() {
                       </div>
                     </>
                   )}
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
+                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Theo gói</p>
+                    <p className="text-xl font-black mt-1 text-blue-600">
+                      {formatSlotLimit(selectedUserDetails.practice_slots_base)}
+                    </p>
+                  </div>
+                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
+                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Cộng thêm</p>
+                    <p className="text-xl font-black mt-1 text-indigo-600">
+                      +{selectedUserDetails.additional_practice_slots || 0} lượt
+                    </p>
+                  </div>
+                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
+                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Số lượt có</p>
+                    <p className="text-xl font-black mt-1 text-emerald-600">
+                      {formatSlotLimit(selectedUserDetails.practice_slots_total)}
+                    </p>
+                  </div>
+                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
+                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Đã dùng hôm nay</p>
+                    <p className="text-xl font-black mt-1 text-purple-600">
+                      {selectedUserDetails.practice_slots_used_today || 0} lượt
+                    </p>
+                  </div>
+                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
+                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Còn lại</p>
+                    <p className="text-xl font-black mt-1 text-amber-600">
+                      {formatSlotLimit(selectedUserDetails.practice_slots_remaining_today)}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Statistics Cards */}

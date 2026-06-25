@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from typing import Any
+from datetime import datetime, time
 
 from configuration.settings import configuration
 from core.common.aes_gcm import AesGCMRotation
@@ -8,7 +9,7 @@ from core.enums.user_enum import UserRole
 from core.exception_handler.custom_exception import ExceptionValueError
 from db.models.users import User
 from schemas.responses.admin_schema import AdminUserSchema, AdminUsersPageSchema
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -34,7 +35,14 @@ class AdminUserService:
 
         result = await self.db_session.execute(query)
         users = list(result.scalars().all())
-        items = [AdminUserSchema.model_validate(user) for user in users]
+        usage_by_user_id = await self._practice_usage_today_by_user_id([user.id for user in users])
+        items = [
+            self._serialize_admin_user_with_practice_quota(
+                user=user,
+                used_today=usage_by_user_id.get(user.id, 0),
+            )
+            for user in users
+        ]
 
         normalized_search = str(search or "").strip().lower()
         if normalized_search:
@@ -53,6 +61,44 @@ class AdminUserService:
             page=page,
             page_size=page_size,
         )
+
+    async def _practice_usage_today_by_user_id(self, user_ids: list[int]) -> dict[int, int]:
+        if not user_ids:
+            return {}
+        from db.models.interview import InterviewSession
+
+        start_of_day = datetime.combine(datetime.utcnow().date(), time.min)
+        result = await self.db_session.execute(
+            select(InterviewSession.candidate_user_id, func.count(InterviewSession.id))
+            .where(
+                InterviewSession.candidate_user_id.in_(user_ids),
+                InterviewSession.session_type == "practice",
+                InterviewSession.created_at >= start_of_day,
+                InterviewSession.deleted_at.is_(None),
+            )
+            .group_by(InterviewSession.candidate_user_id)
+        )
+        return {int(user_id): int(count or 0) for user_id, count in result.all()}
+
+    @staticmethod
+    def _practice_quota_for_user(user: User, used_today: int) -> dict[str, int | None]:
+        plan = getattr(user, "plan", None)
+        base = getattr(plan, "practice_sessions_per_day", None)
+        if base is None and plan is None:
+            base = 2
+        additional = int(getattr(user, "additional_practice_slots", 0) or 0)
+        total = None if base is None else max(0, int(base) + additional)
+        remaining = None if total is None else max(0, total - int(used_today or 0))
+        return {
+            "practice_slots_base": base,
+            "practice_slots_total": total,
+            "practice_slots_used_today": int(used_today or 0),
+            "practice_slots_remaining_today": remaining,
+        }
+
+    def _serialize_admin_user_with_practice_quota(self, user: User, used_today: int) -> AdminUserSchema:
+        schema = AdminUserSchema.model_validate(user)
+        return schema.model_copy(update=self._practice_quota_for_user(user, used_today))
 
     async def update_user_role(self, user_id: int, role: UserRole) -> AdminUserSchema:
         if role == UserRole.ADMIN:
@@ -84,7 +130,8 @@ class AdminUserService:
             select(User).options(selectinload(User.plan)).where(User.id == user_id)
         )
         updated_user = result.scalar_one()
-        return AdminUserSchema.model_validate(updated_user)
+        used_today = (await self._practice_usage_today_by_user_id([updated_user.id])).get(updated_user.id, 0)
+        return self._serialize_admin_user_with_practice_quota(updated_user, used_today)
 
     def _is_fixed_admin(self, user: User) -> bool:
         admin_email_hashes = {
@@ -125,7 +172,8 @@ class AdminUserService:
             select(User).options(selectinload(User.plan)).where(User.id == user.id)
         )
         created_user = result.scalar_one()
-        return AdminUserSchema.model_validate(created_user)
+        used_today = (await self._practice_usage_today_by_user_id([created_user.id])).get(created_user.id, 0)
+        return self._serialize_admin_user_with_practice_quota(created_user, used_today)
 
     async def update_user(
         self, user_id: int, role: UserRole, plan_id: int | None = None, name: str | None = None, email: str | None = None, additional_practice_slots: int | None = None
@@ -176,7 +224,8 @@ class AdminUserService:
             select(User).options(selectinload(User.plan)).where(User.id == user_id)
         )
         updated_user = result.scalar_one()
-        return AdminUserSchema.model_validate(updated_user)
+        used_today = (await self._practice_usage_today_by_user_id([updated_user.id])).get(updated_user.id, 0)
+        return self._serialize_admin_user_with_practice_quota(updated_user, used_today)
 
     async def delete_user(self, user_id: int) -> None:
         result = await self.db_session.execute(
@@ -538,7 +587,9 @@ class AdminUserService:
                 AdminUserDetailSessionSchema.model_validate(dict(row)).model_dump(mode="json")
             )
 
+        used_today = (await self._practice_usage_today_by_user_id([user.id])).get(user.id, 0)
         detail_data = AdminUserDetailSchema.model_validate(user).model_dump(mode="json")
+        detail_data.update(self._practice_quota_for_user(user, used_today))
         detail_data["documents"] = documents
         detail_data["interviews"] = interviews
         return detail_data

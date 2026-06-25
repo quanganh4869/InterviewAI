@@ -22,6 +22,10 @@ class AdminUserSchema(BaseModel):
     created_at: datetime | None = None
     is_fixed_admin: bool = False
     additional_practice_slots: int = 0
+    practice_slots_base: int | None = None
+    practice_slots_total: int | None = None
+    practice_slots_used_today: int = 0
+    practice_slots_remaining_today: int | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -197,6 +201,10 @@ class AdminUserDetailSchema(BaseModel):
     plan_name: str | None = None
     created_at: datetime | None = None
     additional_practice_slots: int = 0
+    practice_slots_base: int | None = None
+    practice_slots_total: int | None = None
+    practice_slots_used_today: int = 0
+    practice_slots_remaining_today: int | None = None
     is_fixed_admin: bool = False
     documents: list[AdminUserDetailDocumentSchema] = []
     interviews: list[AdminUserDetailSessionSchema] = []
