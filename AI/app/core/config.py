@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     WHISPER_MODEL_SIZE: str = "small"
     WHISPER_DEVICE: str = "cpu"
     WHISPER_COMPUTE_TYPE: str = "int8"
+    WHISPER_LANGUAGE: str = "vi"
+    WHISPER_BEAM_SIZE: int = 5
+    WHISPER_BEST_OF: int = 5
+    WHISPER_VAD_FILTER: bool = True
+    WHISPER_NO_SPEECH_THRESHOLD: float = 0.55
+    WHISPER_LOG_PROB_THRESHOLD: float = -1.0
+    WHISPER_COMPRESSION_RATIO_THRESHOLD: float = 2.4
     GEMINI_API_KEY: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
 

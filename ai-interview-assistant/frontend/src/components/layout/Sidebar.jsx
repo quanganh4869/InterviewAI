@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import {
   BriefcaseBusiness,
   FileText,
-  FileSearch,
   FolderKanban,
   History,
   LayoutDashboard,
@@ -21,12 +20,10 @@ const MENU_BY_ROLE = {
     { path: "/admin/users", label: "Người dùng", icon: ShieldCheck },
     { path: "/admin/documents", label: "CV & JD", icon: FolderKanban },
     { path: "/admin/interviews", label: "Các cuộc phỏng vấn", icon: Video },
-    { path: "/admin/matches", label: "Kết quả đối chiếu", icon: FileSearch },
     { path: "/admin/plans", label: "Gói dịch vụ", icon: Sparkles },
   ],
   hr: [
     { path: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
-    { path: "/dashboard?screen=cvJdAnalysis", label: "So sánh CV/JD", icon: FileSearch },
     { path: "/dashboard?screen=profileCv", label: "JD", icon: FileText },
     { path: "/dashboard?screen=insights", label: "Ứng viên", icon: UsersRound },
     { path: "/dashboard?screen=interviewHistory", label: "Lịch sử", icon: History },

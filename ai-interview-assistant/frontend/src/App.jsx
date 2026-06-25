@@ -4,7 +4,6 @@ import FaqPage from "./pages/FaqPage";
 import AdminDocumentsPage from "./pages/AdminDocumentsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminInterviewsPage from "./pages/AdminInterviewsPage";
-import AdminMatchesPage from "./pages/AdminMatchesPage";
 import AdminPlansPage from "./pages/AdminPlansPage";
 import DashboardPage from "./pages/DashboardPage";
 import InterviewResultPage from "./pages/InterviewResultPage";
@@ -163,14 +162,6 @@ export default function App() {
             }
           />
           <Route
-            path="/admin/matches"
-            element={
-              <RequireAuth allowedRoles={["admin"]}>
-                <AdminMatchesPage />
-              </RequireAuth>
-            }
-          />
-          <Route
             path="/admin/plans"
             element={
               <RequireAuth allowedRoles={["admin"]}>
@@ -206,7 +197,7 @@ export default function App() {
           <Route
             path="/viec-lam/:jobPostingId/so-sanh-cv"
             element={
-              <RequireAuth allowedRoles={["user", "admin"]}>
+              <RequireAuth allowedRoles={["user"]}>
                 <CandidateJobComparePage />
               </RequireAuth>
             }
@@ -214,7 +205,7 @@ export default function App() {
           <Route
             path="/bao-cao-cv-jd/:analysisId"
             element={
-              <RequireAuth allowedRoles={["user", "hr", "admin"]}>
+              <RequireAuth allowedRoles={["user"]}>
                 <CvJdReportPage />
               </RequireAuth>
             }

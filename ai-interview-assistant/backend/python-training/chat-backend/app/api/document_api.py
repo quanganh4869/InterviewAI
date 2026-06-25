@@ -39,6 +39,10 @@ UserOrHRDep = Annotated[
     User,
     Depends(require_role([UserRole.USER, UserRole.HR, UserRole.ADMIN])),
 ]
+UserOnlyDep = Annotated[
+    User,
+    Depends(require_role([UserRole.USER])),
+]
 
 
 def get_document_service(db_session: DBSessionDep) -> DocumentService:
@@ -299,7 +303,7 @@ async def parse_cv_document(
 @measure_time
 async def match_cv_with_jd_score(
     payload: DocumentMatchScoreRequest,
-    user: UserOrHRDep,
+    user: UserOnlyDep,
     service: DocumentMatchServiceDep,
 ):
     return await _service_response(

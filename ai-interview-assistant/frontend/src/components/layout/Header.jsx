@@ -9,7 +9,6 @@ import { getStoredTheme, subscribeTheme, toggleStoredTheme } from "../../utils/t
 import "./Header.css";
 
 const SCREEN_TITLES = {
-  cvJdAnalysis: "So sánh CV/JD",
   overview: "Tổng quan",
   profileCv: "CV & JD",
   jobMatch: "Việc làm phù hợp",
@@ -31,7 +30,6 @@ function getPageTitle(location, role) {
 
   if (location.pathname === "/admin/users") return "Quản lý người dùng";
   if (location.pathname === "/admin/documents") return "Quản lý CV & JD";
-  if (location.pathname === "/admin/match") return "Đối chiếu CV/JD";
   if (location.pathname === "/luyen-tap/tao-moi") return "Tạo phiên luyện tập";
   if (location.pathname.startsWith("/luyen-tap/")) return "Luyện phỏng vấn AI";
 

@@ -2,14 +2,17 @@ import logging
 import shutil
 import tempfile
 import os
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from app.services.whisper_service import whisper_service
 
 router = APIRouter()
 log = logging.getLogger(__name__)
 
 @router.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    language: str = Form(default="vi"),
+):
     """
     Transcribe audio file to text using Faster-Whisper.
     """
@@ -27,7 +30,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, tmp)
             temp_path = tmp.name
 
-        result = await whisper_service.transcribe(temp_path)
+        result = await whisper_service.transcribe(temp_path, language=language or "vi")
         return result
 
     except Exception as e:

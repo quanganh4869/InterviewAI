@@ -17,7 +17,6 @@ import {
   DocumentEditModal,
   useDocuments,
 } from "../documents";
-import { CvJdAnalysisScreen } from "../cvJdAnalysis";
 import { AdminDashboardScreen } from "../admin";
 import {
   createJobPostingFromDocument,
@@ -178,23 +177,12 @@ export default function DashboardPage({ forcedScreen }) {
         );
 
       case "cvJdAnalysis":
-        return isRecruiter || isAdmin ? (
-          <CvJdAnalysisScreen userRole={user?.role} />
-        ) : (
-          <OverviewScreen
-            cvRows={documents.cvRows}
-            jdRows={publicJobRows}
-            isDocumentLoading={documents.isLoadingDocuments}
-            onManageDocuments={() => navigate("/dashboard?screen=profileCv")}
-            onOpenMatch={() => navigate("/viec-lam")}
-            onStartInterview={() => navigate("/luyen-tap/tao-moi")}
-            onOpenReports={() => navigate("/dashboard?screen=interviewHistory")}
-            onOpenCandidates={() => navigate("/dashboard?screen=insights")}
-            realSessions={isRecruiter ? hrInterviewSessions : myInterviewSessions}
-          />
-        );
+        return <Navigate to="/dashboard" replace />;
 
       case "jobMatch": {
+        if (isAdmin) {
+          return <Navigate to="/dashboard" replace />;
+        }
         if (!isRecruiter && !isAdmin) {
           return <Navigate to="/viec-lam" replace />;
         }
@@ -218,7 +206,7 @@ export default function DashboardPage({ forcedScreen }) {
             jdRows={visibleJdRows}
             onCompareCvJd={documents.compareCvJd}
             onSelectJd={(id) =>
-              navigate(isAdmin ? `/admin/match?jdId=${id}` : `/dashboard?screen=jobMatch&jdId=${id}`)
+              navigate(`/dashboard?screen=jobMatch&jdId=${id}`)
             }
             onBackToJobList={() => navigate("/dashboard?screen=jobMatch")}
             onStartInterview={({ cvId } = {}) =>

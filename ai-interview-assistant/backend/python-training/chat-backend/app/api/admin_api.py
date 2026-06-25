@@ -266,48 +266,6 @@ async def list_all_interviews(
         )
 
 
-@router.get("/matches")
-@api_version(1, 0)
-@measure_time
-async def list_all_matches(
-    _: AdminDep,
-    service: AdminUserServiceDep,
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
-):
-    try:
-        data = await service.list_all_matches(page=page, page_size=page_size)
-        return ApiResponse.success(data=data)
-    except ExceptionValueError as e:
-        return ApiResponse.error(
-            message=e.message,
-            message_code=e.message_code,
-            status_code=e.status_code,
-        )
-
-
-@router.delete("/matches/{analysis_id}")
-@api_version(1, 0)
-@measure_time
-async def delete_match_report(
-    analysis_id: int,
-    _: AdminDep,
-    service: AdminUserServiceDep,
-):
-    try:
-        await service.delete_match_report(analysis_id=analysis_id)
-        return ApiResponse.success(
-            data=None,
-            message="Match report deleted successfully",
-        )
-    except ExceptionValueError as e:
-        return ApiResponse.error(
-            message=e.message,
-            message_code=e.message_code,
-            status_code=e.status_code,
-        )
-
-
 @router.get("/users/{user_id}/details")
 @api_version(1, 0)
 @measure_time

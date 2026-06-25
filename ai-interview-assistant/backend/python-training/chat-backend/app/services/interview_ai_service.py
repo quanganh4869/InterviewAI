@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any
 
 import httpx
@@ -10,6 +11,19 @@ from core.exception_handler.custom_exception import ExceptionValueError
 def _compact_text(value: str, max_chars: int = 3000) -> str:
     text = " ".join(str(value or "").split())
     return text[:max_chars]
+
+
+def _normalize_transcript(value: str) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    text = re.sub(r"\s+([,.!?;:])", r"\1", text)
+    filler_patterns = [
+        "Transcript mock:",
+        "hệ thống chưa cấu hình",
+        "No meaningful response was detected",
+    ]
+    if any(pattern.lower() in text.lower() for pattern in filler_patterns):
+        return ""
+    return text
 
 
 class InterviewAiProvider:
@@ -223,7 +237,7 @@ class OpenAIInterviewAiProvider(InterviewAiProvider):
                 files={"file": (file_name, media, content_type or "application/octet-stream")},
             )
         response.raise_for_status()
-        return str(response.json().get("text") or "").strip()
+        return _normalize_transcript(response.json().get("text") or "")
 
     async def evaluate(self, context: dict[str, Any]) -> dict[str, Any]:
         system_prompt = (
@@ -531,7 +545,7 @@ class GeminiInterviewAiProvider(InterviewAiProvider):
                     response.raise_for_status()
                     res_data = response.json()
                     transcript = res_data["candidates"][0]["content"]["parts"][0]["text"]
-                    return str(transcript or "").strip()
+                    return _normalize_transcript(transcript)
                 except (httpx.HTTPStatusError, httpx.RequestError) as exc:
                     last_exception = exc
                     if attempt < max_retries - 1:
@@ -708,7 +722,9 @@ class ResilientInterviewAiProvider(InterviewAiProvider):
     async def transcribe(self, media: bytes, file_name: str, content_type: str) -> str:
         if self.openai:
             try:
-                return await self.openai.transcribe(media, file_name, content_type)
+                transcript = await self.openai.transcribe(media, file_name, content_type)
+                if transcript:
+                    return _normalize_transcript(transcript)
             except Exception as exc:
                 log.error("openai_transcription_failed error=%s", str(exc))
 
@@ -719,13 +735,17 @@ class ResilientInterviewAiProvider(InterviewAiProvider):
                 async with httpx.AsyncClient(timeout=120) as client:
                     response = await client.post(
                         configuration.LOCAL_WHISPER_URL,
-                        files={"file": (file_name, media, content_type or "application/octet-stream")}
+                        data={"language": "vi"},
+                        files={"file": (file_name, media, content_type or "application/octet-stream")},
                     )
                     if response.status_code == 200:
                         res_data = response.json()
                         if isinstance(res_data, dict) and "text" in res_data:
-                            log.info("Local Whisper transcription successful.")
-                            return res_data["text"]
+                            transcript = _normalize_transcript(res_data["text"])
+                            if transcript:
+                                log.info("Local Whisper transcription successful.")
+                                return transcript
+                            log.warning("Local Whisper returned empty transcript.")
                         elif isinstance(res_data, dict) and "error" in res_data:
                             log.error("Local Whisper service returned error: %s", res_data["error"])
                     else:
@@ -735,7 +755,9 @@ class ResilientInterviewAiProvider(InterviewAiProvider):
 
         if self.gemini:
             try:
-                return await self.gemini.transcribe(media, file_name, content_type)
+                transcript = await self.gemini.transcribe(media, file_name, content_type)
+                if transcript:
+                    return _normalize_transcript(transcript)
             except Exception as exc:
                 log.error("gemini_transcription_failed error=%s", str(exc))
         

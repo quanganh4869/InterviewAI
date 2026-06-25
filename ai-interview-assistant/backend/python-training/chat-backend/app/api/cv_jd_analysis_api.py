@@ -25,7 +25,7 @@ router = APIRouter(dependencies=[Security(bearer_scheme)])
 DBSessionDep = Annotated[AsyncSession, Depends(Database.get_async_db_session)]
 ActorDep = Annotated[
     User,
-    Depends(require_role([UserRole.USER, UserRole.HR, UserRole.ADMIN])),
+    Depends(require_role([UserRole.USER])),
 ]
 
 

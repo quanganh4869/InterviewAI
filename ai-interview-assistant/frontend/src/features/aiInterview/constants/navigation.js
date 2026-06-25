@@ -1,10 +1,4 @@
 export const SCREEN_CONFIG = {
-  cvJdAnalysis: {
-    title: "So sánh CV/JD",
-    sidebarLabel: "So sánh CV/JD",
-    icon: "job",
-    role: "recruiter",
-  },
   dashboardOverview: {
     title: "Tổng quan",
     sidebarLabel: "Tổng quan",
