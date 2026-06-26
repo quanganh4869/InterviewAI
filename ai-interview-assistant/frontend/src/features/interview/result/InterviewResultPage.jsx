@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -18,7 +18,7 @@ import {
   Video,
 } from "lucide-react";
 import { Button, EmptyState, SectionCard, StatusBadge, PostInterviewProcessingScreen } from "../../../components/ui";
-import { createInterviewMediaObjectUrl, deleteInterviewSession, fetchInterviewReport } from "../../../api";
+import { createInterviewMediaObjectUrl, fetchInterviewReport } from "../../../api";
 import "../../aiInterview/legacy.css";
 
 function clampScore(value) {
@@ -113,23 +113,6 @@ export default function InterviewResultPage() {
       });
     };
   }, [session?.id]);
-
-  const shouldDeleteRef = useRef(true);
-
-  useEffect(() => {
-    const handleUnload = () => {
-      if (session?.session_type === "practice" && session?.id && shouldDeleteRef.current) {
-        deleteInterviewSession({ sessionId: session.id }).catch(() => null);
-      }
-    };
-    window.addEventListener("beforeunload", handleUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleUnload);
-      if (session?.session_type === "practice" && session?.id && shouldDeleteRef.current) {
-        deleteInterviewSession({ sessionId: session.id }).catch(() => null);
-      }
-    };
-  }, [session?.id, session?.session_type]);
 
   const questions = session?.questions || [];
   const answers = session?.answers || [];
@@ -266,21 +249,11 @@ export default function InterviewResultPage() {
                 <div className="flex items-center gap-2">
                   <Button
                     variant={session.session_type === "practice" ? "primary" : "ghost"}
-                    onClick={async () => {
-                      if (session.session_type === "practice") {
-                        shouldDeleteRef.current = true;
-                        try {
-                          await deleteInterviewSession({ sessionId: session.id });
-                        } catch (err) {}
-                        navigate("/dashboard");
-                      } else {
-                        navigate("/viec-lam");
-                      }
-                    }}
+                    onClick={() => navigate(session.session_type === "practice" ? "/dashboard?screen=interviewHistory" : "/viec-lam")}
                     className={session.session_type === "practice" ? "" : "text-slate-300 hover:text-white"}
                   >
                     {session.session_type === "practice" ? (
-                      "Rời đi"
+                      "Xem lịch sử"
                     ) : (
                       <>
                         <ArrowLeft size={16} /> Quay lại
@@ -490,7 +463,6 @@ export default function InterviewResultPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            shouldDeleteRef.current = false;
                             navigate(roomPath(session));
                           }}
                           className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs font-bold text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] transition cursor-pointer shadow-sm"

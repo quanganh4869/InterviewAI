@@ -44,9 +44,19 @@ class InterviewEvaluationResponse(BaseModel):
     created_at: datetime
 
 
+class InterviewCandidateUserResponse(BaseModel):
+    id: int | None = None
+    name: str | None = None
+    email: str | None = None
+    avatar_url: str | None = None
+
+
 class InterviewSessionResponse(BaseModel):
     id: int
     candidate_user_id: int
+    candidate_user: InterviewCandidateUserResponse | None = None
+    candidate_name: str | None = None
+    candidate_email: str | None = None
     session_type: str = "official"
     job_posting_id: int | None = None
     cv_document_id: int | None = None

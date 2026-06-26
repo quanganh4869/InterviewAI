@@ -12,6 +12,7 @@ import {
   ConfirmDialog,
   Pagination,
 } from "../../../components/ui";
+import { createDocumentDownloadUrl } from "../../../api";
 import { authedFetch } from "../../../api/authClient";
 import { dispatchNotice } from "../../../utils/notice";
 import { CvDetailWindow, JdDetailWindow } from "../../aiInterview/components/modals";
@@ -83,10 +84,7 @@ export default function AdminDocumentsPage() {
 
   const handleDownloadDoc = async (docId) => {
     try {
-      const res = await authedFetch(`/v1_0/document/${docId}/access-url`, {
-        method: "POST",
-        body: JSON.stringify({ image_only: false }),
-      });
+      const res = await createDocumentDownloadUrl({ documentId: docId });
       if (res?.download_url) {
         window.open(res.download_url, "_blank");
       } else {
@@ -119,10 +117,7 @@ export default function AdminDocumentsPage() {
       setShowCvModal(true);
       try {
         // Fetch download link
-        const access = await authedFetch(`/v1_0/document/${doc.id}/access-url`, {
-          method: "POST",
-          body: JSON.stringify({ image_only: false }),
-        });
+        const access = await createDocumentDownloadUrl({ documentId: doc.id });
         setSelectedCvDetail(prev => prev?.id === doc.id ? { ...prev, cvPdf: access?.download_url } : prev);
 
         // Fetch parse data
@@ -146,10 +141,7 @@ export default function AdminDocumentsPage() {
       });
       setShowJdModal(true);
       try {
-        const access = await authedFetch(`/v1_0/document/${doc.id}/access-url`, {
-          method: "POST",
-          body: JSON.stringify({ image_only: false }),
-        });
+        const access = await createDocumentDownloadUrl({ documentId: doc.id });
         setSelectedJdDetail(prev => prev?.id === doc.id ? { ...prev, downloadUrl: access?.download_url } : prev);
       } catch (err) {
         dispatchNotice({

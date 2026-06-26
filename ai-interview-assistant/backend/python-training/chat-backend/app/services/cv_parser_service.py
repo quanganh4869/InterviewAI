@@ -99,8 +99,9 @@ class CvParserService:
             )
 
     async def _read_document_bytes(self, storage_key: str) -> bytes:
+        local_path = DocumentService._resolve_local_storage_path(storage_key)
         if configuration.STORAGE_STRATEGY != "r2":
-            file_path = Path(storage_key)
+            file_path = local_path or Path(storage_key)
             if not file_path.exists():
                 raise ExceptionValueError(
                     message="Document file is not found in local storage.",
@@ -130,6 +131,13 @@ class CvParserService:
         except ClientError as exc:
             code = str(exc.response.get("Error", {}).get("Code", ""))
             if code in {"NoSuchKey", "404", "NotFound"}:
+                if local_path:
+                    log.warning(
+                        "cv_r2_missing_using_local_fallback storage_key=%s local_path=%s",
+                        storage_key,
+                        str(local_path),
+                    )
+                    return local_path.read_bytes()
                 raise ExceptionValueError(
                     message="Document file is not found in Cloudflare R2 storage.",
                     status_code=404,

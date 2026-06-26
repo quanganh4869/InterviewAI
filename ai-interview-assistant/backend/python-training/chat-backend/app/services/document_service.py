@@ -72,6 +72,46 @@ class DocumentService:
                 status_code=400,
             )
 
+    @staticmethod
+    def _local_access_response(document_id: int) -> dict[str, Any]:
+        return {
+            "document_id": document_id,
+            "download_url": "",
+            "expires_in": 0,
+            "download_mode": "local",
+        }
+
+    @staticmethod
+    def _resolve_local_storage_path(storage_key: str) -> Path | None:
+        upload_root = Path(configuration.UPLOAD_DIR).resolve()
+        raw_path = Path(storage_key)
+        candidates: list[Path] = []
+
+        if raw_path.is_absolute():
+            candidates.append(raw_path)
+        else:
+            candidates.append(raw_path)
+            candidates.append(upload_root / raw_path)
+
+        seen: set[str] = set()
+        for candidate in candidates:
+            try:
+                resolved = candidate.resolve()
+            except OSError:
+                continue
+
+            resolved_key = str(resolved)
+            if resolved_key in seen:
+                continue
+            seen.add(resolved_key)
+
+            if not resolved.is_relative_to(upload_root):
+                continue
+            if resolved.is_file():
+                return resolved
+
+        return None
+
     async def _ensure_object_exists(self, object_key: str) -> None:
         try:
             exists = await self.storage_service.object_exists(object_key)
@@ -89,7 +129,8 @@ class DocumentService:
             ) from exc
         if not exists:
             raise ExceptionValueError(
-                message="Uploaded file is not found in Cloudflare R2 bucket."
+                message="Uploaded file is not found in Cloudflare R2 bucket.",
+                status_code=404,
             )
 
     @staticmethod
@@ -300,14 +341,21 @@ class DocumentService:
         )
         self._ensure_requested_media_type(document, image_only)
         if not self.storage_service.supports_presigned_download:
-            return {
-                "document_id": document.id,
-                "download_url": "",
-                "expires_in": 0,
-                "download_mode": "local",
-            }
+            return self._local_access_response(document.id)
 
-        await self._ensure_object_exists(document.storage_key)
+        try:
+            await self._ensure_object_exists(document.storage_key)
+        except ExceptionValueError as exc:
+            local_path = self._resolve_local_storage_path(document.storage_key)
+            if exc.status_code == 404 and local_path:
+                log.warning(
+                    "document_r2_missing_using_local_fallback document_id=%s storage_key=%s local_path=%s",
+                    document.id,
+                    document.storage_key,
+                    str(local_path),
+                )
+                return self._local_access_response(document.id)
+            raise
 
         ttl = expires_in or configuration.CLOUDFLARE_R2_PRESIGNED_GET_EXPIRES_SECONDS
         response = await self.storage_service.create_presigned_download(
@@ -327,12 +375,6 @@ class DocumentService:
         document_id: int,
         image_only: bool = False,
     ) -> tuple[Document, Path]:
-        if configuration.STORAGE_STRATEGY != "local":
-            raise ExceptionValueError(
-                message="Local document content is only available when STORAGE_STRATEGY=local.",
-                status_code=400,
-            )
-
         document = await self._get_accessible_document(
             user=user,
             document_id=document_id,
@@ -340,13 +382,16 @@ class DocumentService:
         self._ensure_requested_media_type(document, image_only)
 
         upload_root = Path(configuration.UPLOAD_DIR).resolve()
-        file_path = Path(document.storage_key).resolve()
-        if not file_path.is_relative_to(upload_root):
-            raise ExceptionValueError(
-                message="Document storage path is outside the upload directory.",
-                status_code=403,
-            )
-        if not file_path.is_file():
+        file_path = self._resolve_local_storage_path(document.storage_key)
+        if not file_path:
+            raw_path = Path(document.storage_key)
+            if raw_path.is_absolute() and not raw_path.resolve().is_relative_to(
+                upload_root
+            ):
+                raise ExceptionValueError(
+                    message="Document storage path is outside the upload directory.",
+                    status_code=403,
+                )
             raise ExceptionValueError(
                 message="Document file is not found in local storage.",
                 status_code=404,

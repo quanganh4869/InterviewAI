@@ -49,6 +49,12 @@ const EMAIL_TEMPLATES = {
 export function mapSessionToCandidate(session) {
   if (!session) return null;
   const candUser = session.candidate_user || {};
+  const candidateEmail = candUser.email || session.candidate_email || "";
+  const candidateName =
+    candUser.name ||
+    session.candidate_name ||
+    candidateEmail ||
+    `Ứng viên #${session.candidate_user_id || session.id}`;
   const evalData = session.evaluation || {};
   const evalDetails = evalData.evaluation || {};
   
@@ -76,10 +82,10 @@ export function mapSessionToCandidate(session) {
   
   return {
     id: String(session.id),
-    name: candUser.name || candUser.email || "Ứng viên",
-    email: candUser.email || "",
+    name: candidateName,
+    email: candidateEmail,
     phone: candUser.phone || "N/A",
-    avatar: (candUser.name || candUser.email || "U").charAt(0).toUpperCase(),
+    avatar: (candidateName || candidateEmail || "U").charAt(0).toUpperCase(),
     jdTitle: session.job_posting?.title || "N/A",
     jdId: String(session.job_posting?.id || ""),
     appliedAt: session.created_at ? new Date(session.created_at).toLocaleDateString("vi-VN") : "N/A",
@@ -169,6 +175,7 @@ function buildGmailComposeUrl(candidate) {
 
 function openCandidateEmail(candidate) {
   if (!candidate || typeof window === "undefined") return;
+  if (!candidate.email) return;
   window.open(buildGmailComposeUrl(candidate), "_blank", "noopener,noreferrer");
 }
 
@@ -206,7 +213,7 @@ export function CandidateReviewDetailScreen({ hrInterviewSessions = [] }) {
             <Button variant="secondary" onClick={() => navigate("/dashboard?screen=insights")}>
               <ArrowLeft size={16} /> Quay lại
             </Button>
-            <Button variant="primary" onClick={() => openCandidateEmail(candidate)}>
+            <Button variant="primary" onClick={() => openCandidateEmail(candidate)} disabled={!candidate.email}>
               <Mail size={16} /> Liên hệ
             </Button>
           </div>
@@ -467,7 +474,7 @@ export function InsightsScreen({ hrInterviewSessions = [], jdRows = [], isAdmin 
                     </td>
                     <td>
                       <div className="flex flex-wrap gap-2">
-                        <Button variant="secondary" size="sm" onClick={() => openCandidateEmail(candidate)}>
+                        <Button variant="secondary" size="sm" onClick={() => openCandidateEmail(candidate)} disabled={!candidate.email}>
                           <Mail size={15} /> Liên hệ
                         </Button>
                       </div>

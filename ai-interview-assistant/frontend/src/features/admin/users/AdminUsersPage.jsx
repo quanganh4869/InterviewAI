@@ -8,12 +8,13 @@ import {
   DataToolbar,
   EmptyState,
   PageHeader,
+  Pill,
   RoleBadge,
   SearchBar,
   StatusBadge,
   ConfirmDialog,
 } from "../../../components/ui";
-import { fetchAdminUsers } from "../../../api";
+import { createDocumentDownloadUrl, fetchAdminUsers } from "../../../api";
 import { authedFetch } from "../../../api/authClient";
 import { dispatchNotice } from "../../../utils/notice";
 
@@ -29,7 +30,6 @@ const USER_COLUMNS = [
   { key: "email", label: "Email" },
   { key: "role", label: "Quyền" },
   { key: "plan", label: "Gói" },
-  { key: "quota", label: "Lượt hôm nay" },
   { key: "created", label: "Ngày tạo" },
 ];
 
@@ -48,6 +48,11 @@ function formatSlotRatio(user) {
   const used = Number(user?.practice_slots_used_today || 0);
   const total = user?.practice_slots_total;
   return total == null ? `${used}/∞` : `${used}/${total}`;
+}
+
+function isRegularUser(role) {
+  const normalized = String(role || "").toLowerCase();
+  return normalized === "user" || normalized === "candidate";
 }
 
 export default function AdminUsersPage() {
@@ -178,10 +183,7 @@ export default function AdminUsersPage() {
 
   const handleDownloadDoc = async (docId) => {
     try {
-      const res = await authedFetch(`/v1_0/document/${docId}/access-url`, {
-        method: "POST",
-        body: JSON.stringify({ image_only: false }),
-      });
+      const res = await createDocumentDownloadUrl({ documentId: docId });
       if (res?.download_url) {
         window.open(res.download_url, "_blank");
       }
@@ -257,7 +259,7 @@ export default function AdminUsersPage() {
         email: formData.email,
         role: formData.role,
         plan_id: formData.plan_id ? Number(formData.plan_id) : null,
-        additional_practice_slots: Number(formData.additional_practice_slots || 0),
+        additional_practice_slots: isRegularUser(formData.role) ? Number(formData.additional_practice_slots || 0) : 0,
       };
       await authedFetch("/v1_0/admin/users", {
         method: "POST",
@@ -287,7 +289,7 @@ export default function AdminUsersPage() {
         email: detailsForm.email || null,
         role: detailsForm.role,
         plan_id: detailsForm.plan_id ? Number(detailsForm.plan_id) : null,
-        additional_practice_slots: Number(detailsForm.additional_practice_slots || 0),
+        additional_practice_slots: isRegularUser(detailsForm.role) ? Number(detailsForm.additional_practice_slots || 0) : 0,
       };
       await authedFetch(`/v1_0/admin/users/${selectedUserDetails.id}`, {
         method: "PATCH",
@@ -452,19 +454,6 @@ export default function AdminUsersPage() {
                         {targetUser.plan_name?.toUpperCase() || "FREE"}
                       </StatusBadge>
                     </td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => handleViewUserDetails(targetUser)}
-                        className="text-left rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 hover:border-blue-300 hover:bg-blue-50/40 transition-colors"
-                        title="Xem/chỉnh số lượt"
-                      >
-                        <p className="text-sm font-black text-[var(--color-text)]">{formatSlotRatio(targetUser)}</p>
-                        <p className="text-[10px] font-bold uppercase text-[var(--color-text-muted)]">
-                          Còn {formatSlotLimit(targetUser.practice_slots_remaining_today)}
-                        </p>
-                      </button>
-                    </td>
                     <td className="text-[var(--color-text-muted)]">
                       {formatDate(targetUser.created_at)}
                     </td>
@@ -539,17 +528,19 @@ export default function AdminUsersPage() {
                 </label>
               </div>
 
-              <label className="block">
-                <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Lượt phỏng vấn cộng thêm (Mỗi ngày)</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.additional_practice_slots}
-                  onChange={(e) => setFormData({ ...formData, additional_practice_slots: parseInt(e.target.value) || 0 })}
-                  placeholder="Ví dụ: 5"
-                  className="ds-input w-full mt-1.5 px-3 py-2 font-bold"
-                />
-              </label>
+              {isRegularUser(formData.role) ? (
+                <label className="block">
+                  <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Lượt luyện tập cộng thêm/ngày</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.additional_practice_slots}
+                    onChange={(e) => setFormData({ ...formData, additional_practice_slots: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                    placeholder="Ví dụ: 5"
+                    className="ds-input w-full mt-1.5 px-3 py-2 font-bold"
+                  />
+                </label>
+              ) : null}
 
               <div className="flex gap-3 justify-end pt-2">
                 <Button type="button" variant="ghost" onClick={() => setShowCreateModal(false)}>
@@ -661,47 +652,48 @@ export default function AdminUsersPage() {
                         </label>
                       </div>
 
-                      {/* Slots input */}
-                      <div>
-                        <label className="block">
-                          <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Lượt cộng thêm/ngày</span>
-                          <div className="mt-1 flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              className="h-9 w-9 rounded-lg border border-[var(--color-border)] font-black text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
-                              onClick={() =>
-                                setDetailsForm((current) => ({
-                                  ...current,
-                                  additional_practice_slots: Math.max(0, Number(current.additional_practice_slots || 0) - 1),
-                                }))
-                              }
-                              title="Trừ 1 lượt"
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              min="0"
-                              value={detailsForm.additional_practice_slots}
-                              onChange={(e) => setDetailsForm({ ...detailsForm, additional_practice_slots: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                              className="ds-input w-24 px-3 py-2 text-sm font-bold text-center"
-                            />
-                            <button
-                              type="button"
-                              className="h-9 w-9 rounded-lg border border-[var(--color-border)] font-black text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
-                              onClick={() =>
-                                setDetailsForm((current) => ({
-                                  ...current,
-                                  additional_practice_slots: Number(current.additional_practice_slots || 0) + 1,
-                                }))
-                              }
-                              title="Thêm 1 lượt"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </label>
-                      </div>
+                      {isRegularUser(detailsForm.role) ? (
+                        <div>
+                          <label className="block">
+                            <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Lượt luyện tập cộng thêm/ngày</span>
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                className="h-9 w-9 rounded-lg border border-[var(--color-border)] font-black text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
+                                onClick={() =>
+                                  setDetailsForm((current) => ({
+                                    ...current,
+                                    additional_practice_slots: Math.max(0, Number(current.additional_practice_slots || 0) - 1),
+                                  }))
+                                }
+                                title="Trừ 1 lượt"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min="0"
+                                value={detailsForm.additional_practice_slots}
+                                onChange={(e) => setDetailsForm({ ...detailsForm, additional_practice_slots: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                                className="ds-input w-24 px-3 py-2 text-sm font-bold text-center"
+                              />
+                              <button
+                                type="button"
+                                className="h-9 w-9 rounded-lg border border-[var(--color-border)] font-black text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
+                                onClick={() =>
+                                  setDetailsForm((current) => ({
+                                    ...current,
+                                    additional_practice_slots: Number(current.additional_practice_slots || 0) + 1,
+                                  }))
+                                }
+                                title="Thêm 1 lượt"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </label>
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <>
@@ -729,20 +721,8 @@ export default function AdminUsersPage() {
                         </div>
                       </div>
 
-                      {/* Joined Date & Slots */}
+                      {/* Joined Date */}
                       <div className="space-y-1">
-                        <div>
-                          <p className="text-xs font-bold uppercase text-[var(--color-text-muted)]">Lượt cộng thêm/ngày</p>
-                          <p className="text-sm font-bold text-[var(--color-text)] mt-0.5">
-                            +{selectedUserDetails.additional_practice_slots || 0} lượt
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase text-[var(--color-text-muted)]">Hôm nay</p>
-                          <p className="text-sm font-bold text-[var(--color-text)] mt-0.5">
-                            {formatSlotRatio(selectedUserDetails)} đã dùng
-                          </p>
-                        </div>
                         <div>
                           <p className="text-xs font-bold uppercase text-[var(--color-text-muted)]">Ngày tham gia</p>
                           <p className="text-sm font-bold text-[var(--color-text)] flex items-center gap-1.5 mt-0.5">
@@ -755,38 +735,41 @@ export default function AdminUsersPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
-                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Theo gói</p>
-                    <p className="text-xl font-black mt-1 text-blue-600">
-                      {formatSlotLimit(selectedUserDetails.practice_slots_base)}
-                    </p>
+                {isRegularUser(selectedUserDetails.role) ? (
+                  <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h4 className="font-black text-[var(--color-text)]">Lượt luyện tập hôm nay</h4>
+                        <p className="text-xs font-semibold text-[var(--color-text-muted)]">
+                          Tổng lượt = giới hạn theo gói + lượt cộng thêm do admin cấp.
+                        </p>
+                      </div>
+                      <Pill tone="default">{formatSlotRatio(selectedUserDetails)} đã dùng</Pill>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div className="rounded-lg bg-[var(--color-surface-muted)] p-3">
+                        <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Theo gói</p>
+                        <p className="text-lg font-black mt-1 text-blue-600">{formatSlotLimit(selectedUserDetails.practice_slots_base)}</p>
+                      </div>
+                      <div className="rounded-lg bg-[var(--color-surface-muted)] p-3">
+                        <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Cộng thêm</p>
+                        <p className="text-lg font-black mt-1 text-indigo-600">+{selectedUserDetails.additional_practice_slots || 0} lượt</p>
+                      </div>
+                      <div className="rounded-lg bg-[var(--color-surface-muted)] p-3">
+                        <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Số lượt có</p>
+                        <p className="text-lg font-black mt-1 text-emerald-600">{formatSlotLimit(selectedUserDetails.practice_slots_total)}</p>
+                      </div>
+                      <div className="rounded-lg bg-[var(--color-surface-muted)] p-3">
+                        <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Đã dùng</p>
+                        <p className="text-lg font-black mt-1 text-purple-600">{selectedUserDetails.practice_slots_used_today || 0} lượt</p>
+                      </div>
+                      <div className="rounded-lg bg-[var(--color-surface-muted)] p-3">
+                        <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Còn lại</p>
+                        <p className="text-lg font-black mt-1 text-amber-600">{formatSlotLimit(selectedUserDetails.practice_slots_remaining_today)}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
-                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Cộng thêm</p>
-                    <p className="text-xl font-black mt-1 text-indigo-600">
-                      +{selectedUserDetails.additional_practice_slots || 0} lượt
-                    </p>
-                  </div>
-                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
-                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Số lượt có</p>
-                    <p className="text-xl font-black mt-1 text-emerald-600">
-                      {formatSlotLimit(selectedUserDetails.practice_slots_total)}
-                    </p>
-                  </div>
-                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
-                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Đã dùng hôm nay</p>
-                    <p className="text-xl font-black mt-1 text-purple-600">
-                      {selectedUserDetails.practice_slots_used_today || 0} lượt
-                    </p>
-                  </div>
-                  <div className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)]">
-                    <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase">Còn lại</p>
-                    <p className="text-xl font-black mt-1 text-amber-600">
-                      {formatSlotLimit(selectedUserDetails.practice_slots_remaining_today)}
-                    </p>
-                  </div>
-                </div>
+                ) : null}
 
                 {/* Statistics Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

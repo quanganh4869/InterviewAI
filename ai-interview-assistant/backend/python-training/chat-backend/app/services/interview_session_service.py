@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from configuration.settings import configuration
+from core.common.aes_gcm import AesGCMRotation
 from core.enums.document_enum import DocumentType
 from core.enums.user_enum import UserRole
 from core.exception_handler.custom_exception import ExceptionValueError
@@ -49,6 +50,7 @@ class InterviewSessionService:
         self.document_service = DocumentService(db_session)
         self.ai_provider = ResilientInterviewAiProvider()
         self.storage_service = get_storage_service()
+        self.crypto_service = AesGCMRotation(configuration=configuration)
 
     async def create_session(
         self,
@@ -604,9 +606,14 @@ class InterviewSessionService:
     async def serialize_session(self, session: InterviewSession) -> dict[str, Any]:
         posting = await self._get_posting(session.job_posting_id) if session.job_posting_id else None
         evaluation = await self._get_evaluation(session.id)
+        candidate = await self._get_user(session.candidate_user_id)
+        candidate_user = self._serialize_candidate_user(candidate, session.candidate_user_id)
         return {
             "id": session.id,
             "candidate_user_id": session.candidate_user_id,
+            "candidate_user": candidate_user,
+            "candidate_name": candidate_user["name"],
+            "candidate_email": candidate_user["email"],
             "session_type": session.session_type or SESSION_TYPE_OFFICIAL,
             "job_posting_id": session.job_posting_id,
             "cv_document_id": session.cv_document_id,
@@ -664,6 +671,51 @@ class InterviewSessionService:
         if posting is None:
             raise ExceptionValueError(message="Job posting not found.", status_code=404)
         return posting
+
+    async def _get_user(self, user_id: int | None) -> User | None:
+        if not user_id:
+            return None
+        query = select(User).where(User.id == user_id)
+        return (await self.db_session.execute(query)).scalar_one_or_none()
+
+    def _serialize_candidate_user(
+        self,
+        candidate: User | None,
+        fallback_id: int | None = None,
+    ) -> dict[str, Any]:
+        if not candidate:
+            return {
+                "id": fallback_id,
+                "name": f"Ứng viên #{fallback_id}" if fallback_id else "Ứng viên",
+                "email": "",
+                "avatar_url": None,
+            }
+
+        email = ""
+        name = ""
+        try:
+            email = (
+                self.crypto_service.decrypt_data(candidate.email_encrypted)
+                if candidate.email_encrypted
+                else ""
+            )
+        except Exception:
+            email = ""
+        try:
+            name = (
+                self.crypto_service.decrypt_data(candidate.name_encrypted)
+                if candidate.name_encrypted
+                else ""
+            )
+        except Exception:
+            name = ""
+
+        return {
+            "id": candidate.id,
+            "name": name or email or f"Ứng viên #{candidate.id}",
+            "email": email,
+            "avatar_url": candidate.avatar_url,
+        }
 
     async def _get_analysis(self, analysis_id: int | None) -> CvJdAnalysis | None:
         if not analysis_id:

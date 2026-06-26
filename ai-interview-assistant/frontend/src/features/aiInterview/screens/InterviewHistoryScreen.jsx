@@ -15,6 +15,14 @@ import { Sparkles } from "lucide-react";
 
 const PAGE_SIZE = 6;
 
+const SORT_OPTIONS = [
+  { value: "newest", label: "Mới nhất trước" },
+  { value: "oldest", label: "Cũ nhất trước" },
+  { value: "score_desc", label: "Điểm cao trước" },
+  { value: "score_asc", label: "Điểm thấp trước" },
+  { value: "status", label: "Trạng thái A-Z" },
+];
+
 const HISTORY_COLUMNS = [
   { key: "select", label: "" },
   { key: "session", label: "Ngày & mã" },
@@ -54,6 +62,16 @@ function mapSession(session) {
     status: session.evaluation?.evaluation?.hiring_recommendation || displayStatus(session.status),
     createdAtTs: toTimestamp(session.created_at),
     raw: session,
+  };
+}
+
+function compareRows(sortBy) {
+  return (a, b) => {
+    if (sortBy === "oldest") return a.createdAtTs - b.createdAtTs;
+    if (sortBy === "score_desc") return b.score - a.score || b.createdAtTs - a.createdAtTs;
+    if (sortBy === "score_asc") return a.score - b.score || b.createdAtTs - a.createdAtTs;
+    if (sortBy === "status") return String(a.status || "").localeCompare(String(b.status || ""), "vi") || b.createdAtTs - a.createdAtTs;
+    return b.createdAtTs - a.createdAtTs;
   };
 }
 
@@ -139,6 +157,7 @@ function HistorySection({
 export function InterviewHistoryScreen({ realSessions = [] }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
   const [selectedSessionIds, setSelectedSessionIds] = useState([]);
 
   const toggleSelectSession = (id) => {
@@ -150,16 +169,17 @@ export function InterviewHistoryScreen({ realSessions = [] }) {
   const rows = useMemo(
     () =>
       realSessions
-        .map(mapSession)
-        .sort((a, b) => b.createdAtTs - a.createdAtTs),
+        .map(mapSession),
     [realSessions],
   );
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) => `${row.id} ${row.role} ${row.status}`.toLowerCase().includes(q));
-  }, [query, rows]);
+    const matchedRows = q
+      ? rows.filter((row) => `${row.id} ${row.role} ${row.status}`.toLowerCase().includes(q))
+      : rows;
+    return [...matchedRows].sort(compareRows(sortBy));
+  }, [query, rows, sortBy]);
 
   const officialRows = filteredRows.filter((row) => row.type !== "practice");
   const practiceRows = filteredRows.filter((row) => row.type === "practice");
@@ -189,6 +209,20 @@ export function InterviewHistoryScreen({ realSessions = [] }) {
           className="md:max-w-md"
           onChange={(event) => setQuery(event.target.value)}
         />
+        <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+          Sắp xếp
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value)}
+            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-bold normal-case tracking-normal text-[var(--color-text)] outline-none transition focus:border-[var(--color-primary)]"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </DataToolbar>
 
       <HistorySection
